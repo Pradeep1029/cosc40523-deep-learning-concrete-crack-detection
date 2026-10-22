@@ -1,9 +1,10 @@
 # COSC 40523 Deep Learning - Concrete Crack Detection
 
-**TCU | Fall 2026 | Team Vectorise**  
-**Members:** Jayapradeep Jayaraman Srinivas and Harshvardhan Datre
+**TCU | Fall 2026**
 
-Our project looks at how well different models can tell whether an image of concrete contains a crack. We compare a simple logistic regression baseline, a CNN built from scratch, and a pretrained MobileNetV2 model.
+**Student:** Jayapradeep Jayaraman Srinivas
+
+My project looks at how well different models can tell whether an image of concrete contains a crack. I am comparing a simple logistic regression baseline, a CNN built from scratch, and a pretrained MobileNetV2 model.
 
 The goal is to evaluate all three on the same test images, compare their results, and look at the mistakes each model makes.
 
@@ -17,7 +18,7 @@ The goal is to evaluate all three on the same test images, compare their results
 
 ## Dataset
 
-We use [Concrete Crack Images for Classification](https://doi.org/10.17632/5y9wdsg2zt.1) from Mendeley Data. It contains 40,000 RGB images, each 227 × 227 pixels: 20,000 with cracks and 20,000 without.
+I use [Concrete Crack Images for Classification](https://doi.org/10.17632/5y9wdsg2zt.1) from Mendeley Data. It contains 40,000 RGB images, each 227 × 227 pixels: 20,000 with cracks and 20,000 without.
 
 Download and extract the dataset on your computer. The folder passed to `--dataset-root` should contain the `Positive` and `Negative` folders directly:
 
@@ -73,11 +74,11 @@ python -m crack_detection.train --dataset-root data --model mobilenet --no-pretr
 
 That last command starts from random weights, so it does not test transfer learning.
 
-## How we evaluate the models
+## Evaluation plan
 
 The default split is approximately 70% training, 15% validation, and 15% testing, with a random seed of 42. The image-level split keeps the class proportions similar across the three sets. Horizontal and vertical flips are applied only to training images for the neural models.
 
-Validation F1 is used to select the best neural model checkpoint. The test set is then used to report accuracy, precision, recall, F1, and the confusion matrix. Each run also saves a list of misclassified test images so we can inspect false positives and false negatives.
+Validation F1 is used to select the best training epoch for each neural model. The test set is then used to report accuracy, precision, recall, F1, and the confusion matrix. Each run also saves a list of misclassified test images so I can inspect false positives and false negatives.
 
 ### Keeping related images together
 
