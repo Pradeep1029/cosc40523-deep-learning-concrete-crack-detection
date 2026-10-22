@@ -1,0 +1,27 @@
+# Course submission policy: no datasets, model weights, or checkpoints.
+/data/
+/datasets/
+/runs/
+/results/
+/checkpoints/
+/**/*.pt
+/**/*.pth
+/**/*.ckpt
+/**/*.onnx
+/**/*.h5
+/**/*.hdf5
+/**/*.safetensors
+/**/*.pkl
+/**/*.pickle
+/**/*.joblib
+/**/*.npy
+/**/*.npz
+/**/*.rar
+/**/*.zip
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+venv/
+.env
+.DS_Store

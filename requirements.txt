@@ -1,0 +1,7 @@
+numpy>=1.26,<3
+Pillow>=10,<13
+scikit-learn>=1.4,<2
+# Install CPU/CUDA appropriate PyTorch wheels using https://pytorch.org/get-started/locally/
+torch>=2.2,<3
+torchvision>=0.17,<1
+pytest>=8,<10
