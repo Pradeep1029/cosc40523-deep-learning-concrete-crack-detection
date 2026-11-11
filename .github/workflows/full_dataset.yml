@@ -5,8 +5,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   train:
+    if: ${{ !contains(github.event.head_commit.message, '[report-only]') }}
     name: ${{ matrix.model }} full dataset
     runs-on: ubuntu-24.04
     timeout-minutes: 355
@@ -50,7 +52,7 @@ jobs:
   combine:
     name: Verify, tabulate, and render real results
     needs: [train]
-    if: success()
+    if: ${{ always() && (needs.train.result == 'success' || contains(github.event.head_commit.message, '[report-only]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -62,10 +64,12 @@ jobs:
         run: |
           python -m pip install numpy matplotlib
           sudo apt-get update -qq
-          sudo apt-get install -y -qq texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-publishers
+          sudo apt-get install -y -qq texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-publishers poppler-utils
       - uses: actions/download-artifact@v4
         with:
           pattern: full40k-*
+          run-id: ${{ contains(github.event.head_commit.message, '[report-only]') && 42942923951 || github.run_id }}
+          github-token: ${{ github.token }}
           path: runs/artifacts
           merge-multiple: false
       - name: Arrange model outputs
@@ -75,6 +79,8 @@ jobs:
             mkdir -p "runs/per_model/$model"
             cp -r "runs/artifacts/full40k-$model/runs/per_model/$model/." "runs/per_model/$model/"
           done
+          mkdir -p data
+          cp runs/artifacts/full40k-logistic/data/_provenance.json data/_provenance.json
       - name: Verify splits and create result figures
         run: |
           python scripts/merge_runs.py --run-dir runs/per_model --output-dir runs/final_seed42
@@ -86,6 +92,9 @@ jobs:
           pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
           pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
           pdfinfo final_report.pdf | grep Pages
+          test "$(pdfinfo final_report.pdf | awk '/^Pages:/ {print $2}')" -eq 6
+          ! pdftotext -f 5 -l 5 final_report.pdf - | grep -q '10.17632/5y9wdsg2zt.1'
+          pdftotext -f 6 -l 6 final_report.pdf - | grep -q '10.17632/5y9wdsg2zt.1'
       - name: Upload full results and IEEE report
         uses: actions/upload-artifact@v4
         with:

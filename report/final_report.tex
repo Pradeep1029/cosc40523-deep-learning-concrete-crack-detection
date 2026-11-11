@@ -42,7 +42,7 @@ Those studies are relevant context, not directly comparable score baselines: dat
 \clearpage
 \section{Data}
 \subsection{Origin and labels}
-The chosen \emph{Concrete Crack Images for Classification} dataset is published by \"Ozgenel on Mendeley Data, version 1, DOI 10.17632/5y9wdsg2zt.1 \cite{dataset}. It contains 40,000 RGB image patches at $227\times227$ pixels: 20,000 in the \texttt{Positive} folder and 20,000 in the \texttt{Negative} folder. The imagery was collected from METU campus buildings and cropped from 458 photographs originally measuring $4032\times3024$ pixels. The source photographs vary in illumination and surface finish. The dataset was not included in the repository because of its size and because the assignment requests access instructions rather than bulk image distribution.
+The chosen \emph{Concrete Crack Images for Classification} dataset is published by \"Ozgenel on Mendeley Data, version 1, DOI 10.17632/5y9wdsg2zt.1 \cite{dataset}. It contains 40,000 RGB image patches at $227\times227$ pixels: 20,000 in the \texttt{Positive} folder and 20,000 in the \texttt{Negative} folder. The imagery was collected from METU campus buildings and cropped from 458 photographs originally measuring $4032\times3024$ pixels. The source photographs vary in illumination and surface finish. The full experiment fetched the 40,000 patches from a public Kaggle mirror of this release, verifying 20,000 examples per class and recording the downloaded archive SHA-256 in \texttt{\_provenance.json}. The repository excludes dataset images and trained weights.
 
 Labels are image-level and binary. A \texttt{Positive} label indicates the presence of an apparent crack somewhere within the patch; no pixelwise segmentation or severity annotation is available from this particular classification release. This limits the interpretation: success is identification of a label for the crop, not localization of crack geometry. The source also does not provide a verified original-photo identifier alongside every patch in the existing project material. Consequently, group-based evaluation is conditional on obtaining such a mapping.
 
@@ -52,7 +52,7 @@ For the logistic baseline, each image becomes a $16\times16$ grayscale array. Th
 The scratch CNN reads three-channel data and resizes to $128\times128$; channels are normalized with mean and standard deviation of 0.5. MobileNetV2 uses $224\times224$ resized inputs and ImageNet channel statistics: means $(0.485,0.456,0.406)$ and standard deviations $(0.229,0.224,0.225)$. For neural training only, independent horizontal and vertical flips are possible; inference transforms are deterministic. There is no cropping of test images after splitting, and augmentation is never applied to validation or test sets.
 
 \subsection{Partitions and leakage risk}
-With seed 42 and no reliable photograph mapping, the code builds an image-level stratified split. The intended proportions are 70\% training, 15\% validation, and 15\% testing: for the intact 40,000-image balanced corpus, approximately 28,000/6,000/6,000 patches. A given patch appears in exactly one partition, and all models reuse the same exported \texttt{splits.csv}. But distinct patches from one original photograph can look unusually alike. Their appearance in both train and test is \emph{not} ruled out by image-level disjointness.
+With seed 42 and no reliable photograph mapping, the code builds an image-level stratified split. The actual proportions were 70\% training, 15\% validation, and 15\% testing: 28,000/6,000/6,000 patches, balanced within each subset (14,000/3,000/3,000 positives). A given patch appears in exactly one partition, and all models reuse the same exported \texttt{splits.csv}. But distinct patches from one original photograph can look unusually alike. Their appearance in both train and test is \emph{not} ruled out by image-level disjointness.
 
 A stricter protocol takes a verified \texttt{relative\_path,source\_group} mapping and applies two sequential seeded \texttt{GroupShuffleSplit} operations, requiring source groups to remain disjoint across all three subsets. Group-based splitting is necessarily approximate in counts and may produce uneven class balance; the script rejects any resulting split with fewer than two classes. A fabricated photo mapping or grouping by arbitrary patch filenames is not accepted as proof of source independence.
 
@@ -78,7 +78,7 @@ Primary weakness & Possible overlap in source-photo identity\\
 \end{table}
 
 \subsection{Integrity and dataset checks}
-An optional validation pass opens and verifies every image, counts image sizes, and aborts on unreadable data. The script records discovered and used image totals and per-partition positive/negative counts. These checks are prerequisites for a meaningful comparison; they are separate from estimating model accuracy. The training code supports a deliberately labeled small-subset mode for development, and that output must never be represented as full-dataset evidence.
+The completed run verified all 40,000 images: every file was readable and exactly $227\times227$ pixels, and each class contained 20,000 patches. All three independent training jobs exported identical split-file SHA-256 checksums. These integrity checks are separate from model performance, but establish that the reported experiment did not silently use a subset. The training code supports a deliberately labeled small-subset mode for development, and that output must never be represented as full-dataset evidence.
 
 % Physical page 3.
 \clearpage
@@ -140,10 +140,27 @@ Confusion matrices are ordered as \texttt{[Negative, Positive]} along both axes,
 \subsection{Verified implementation observations}
 The available environment was able to run the repository's automated tests on generated \emph{synthetic} examples. Nine checks passed: deterministic splitting; parent-group disjointness; detection of erroneous group mappings; scratch CNN shape; frozen MobileNetV2 feature weights; metric calculation; preprocessing tensor dimensions; end-to-end logistic data flow and output files; and rejection of an invalid development-subset size. No test in this collection estimates performance on real concrete imagery. Furthermore, a frozen-weight check is not a substitute for a genuine end-to-end pretrained training run; the training loop also explicitly holds backbone batch-normalization in evaluation mode.
 
-\subsection{Empirical comparison status}
+\subsection{Full-dataset empirical comparison}
 \ifnum\ResultsAvailable=1
 \EmpiricalResultsTable
-The recorded held-out full-dataset test comparison favors \BestModel{} by F1, with a score of \BestFOne{}. The evaluated partition contains \TrainingN{} training, \ValidationN{} validation, and \TestingN{} test patches under the \SplitProtocol{} protocol. These values are generated from a validated complete-run \texttt{metrics.json} artifact, not entered by hand. The comparison must still be interpreted in light of source-photo overlap whenever the split remains image-level.
+The recorded held-out full-dataset test comparison favors \BestModel{} by F1, with a score of \BestFOne{}. The evaluated partition contains \TrainingN{} training, \ValidationN{} validation, and \TestingN{} test patches under the \SplitProtocol{} protocol. These values come directly from the merged, validated complete-run \texttt{metrics.json} artifact. With exactly 3,000 positive test crops, MobileNetV2 missed no cracks but marked six negative patches as cracked; the scratch CNN missed ten and produced six false alarms. Logistic regression missed 400 cracks. These are crop-level observations, not prospective reliability estimates for unrelated buildings.
+
+\begin{table}[H]
+\caption{Held-Out Confusion Matrices and Model Fit Time}
+\label{tab:cm}
+\centering
+\footnotesize
+\begin{tabular}{lrrrrr}
+\toprule
+Model & TN & FP & FN & TP & Time (s)\\
+\midrule
+Logistic & 2830 & 170 & 400 & 2600 & 17\\
+Scratch CNN & 2994 & 6 & 10 & 2990 & 3531\\
+MobileNetV2 & 2994 & 6 & 0 & 3000 & 5196\\
+\bottomrule
+\end{tabular}
+\end{table}
+The two neural models were optimized for five epochs on GitHub-hosted CPU runners. Their observed validation-F1 best epochs were both epoch 5; the timings are not matched compute-cost comparisons to logistic regression, which uses 256 grayscale pixels rather than full RGB images. The mirror-source record, training configurations, error CSVs, and per-epoch history accompany the machine-readable metrics.
 \else
 \begin{table}[H]
 \caption{Full-Dataset Test Comparison --- Not Yet Measured}
@@ -164,7 +181,7 @@ MobileNetV2 & --- & --- & --- & ---\\
 \fi
 
 \subsection{Controlled experiments and uncertainty}
-A defensible final analysis should include a CNN run with flips disabled, using a separate output directory and the same data identities and configuration; its validation and test F1 can then be compared with the augmented CNN. Another useful, stronger generalization test repeats the three-way comparison with verified source-photo-disjoint partitions if the photograph mapping becomes available. The latter cannot be replaced by a new random patch seed: random-seed replication measures split variability but does not remove source dependence.
+The full-data run used flips during neural training, but a flips-disabled CNN ablation was not executed. To isolate augmentation effects, such a run would retain all other settings and test identities. Another useful, stronger generalization test repeats the three-way comparison with verified source-photo-disjoint partitions if the photograph mapping becomes available. The latter cannot be replaced by a new random patch seed: random-seed replication measures split variability but does not remove source dependence.
 
 \ifnum\ResultsAvailable=1 The tested models differ in training time and architecture; F1 must be weighed against recall and the cost of deploying a larger feature extractor. The recorded run provides a numerical comparison under one split and seed, not a confidence interval across independent data collections. Error CSVs permit inspection of individual disagreements, but qualitative causes must be checked directly against original images. \else Because the official-dataset run was unverified, no numerical differences, confidence intervals, selected epochs, runtime ranking, or examples of real errors are asserted. The implementation exports configurations, split assignments, and error CSVs. A plotting utility renders actual F1 charts, confusion matrices, and validation curves once measured results exist. A blank result entry is preferable to a hypothetical score. \fi
 
@@ -172,14 +189,14 @@ A defensible final analysis should include a CNN run with flips disabled, using 
 \clearpage
 \section{Discussion and Conclusion}
 \subsection{What can and cannot be concluded}
-The implemented comparison is designed to test a progression in representation power: from fixed low-resolution raw pixels, to a trainable convolutional hierarchy, to features learned previously on a large external image corpus. It is reasonable to hypothesize that learned features outperform a fixed-position pixel classifier on textured concrete. \ifnum\ResultsAvailable=1 The complete-run table supports a comparison on held-out patches under the recorded split, but does not establish independence from the parent photographs or performance in new environments. \else This is \emph{not a finding} until official held-out data are evaluated. No claim of a superior architecture, inspection accuracy, or statistical significance follows from nine synthetic-data tests. \fi
+The measured comparison tests a progression in representation power: from fixed low-resolution raw pixels, to a trainable convolutional hierarchy, to features learned previously on a large external image corpus. Both learned feature models exceeded the fixed-position pixel classifier by more than nine percentage points of test F1; MobileNetV2 exceeded the scratch CNN by approximately 0.17 percentage points. \ifnum\ResultsAvailable=1 The complete-run table supports a comparison on held-out patches under the recorded split, but does not establish independence from the parent photographs or performance in new environments. \else This is \emph{not a finding} until official held-out data are evaluated. No claim of a superior architecture, inspection accuracy, or statistical significance follows from nine synthetic-data tests. \fi
 
 The project raises three concrete interpretation issues. First, patch-level labels do not locate crack geometry, so a correct label does not show \emph{where} a crack exists. Second, cracks within the METU images do not necessarily represent other regions, surfaces, acquisition devices, or weather conditions. Third, data leakage from common source photographs can create misleadingly optimistic scores. Results from a patch-level split must therefore be described as held-out \emph{patch} performance even when no exact patch identity crosses partitions.
 
-\subsection{Failure analysis plan}
-After a measured run, review all false negatives before drawing operational conclusions, because these indicate cracks that a screening tool would miss. For each false negative, inspect whether crack thickness, low contrast, shadows, fine texture, or unusual lighting plausibly contributed; however, human interpretation of a few images should be labeled qualitative, not a causal explanation. Similarly, false positives should be grouped by shadows, expansion joints, edge marks, stains, and other line-like non-crack structures. Error categories not established by actual inspection must not be assigned fictional counts.
+\subsection{Observed errors and follow-up failure analysis}
+The measured outputs contain 400 logistic, 10 CNN, and zero MobileNetV2 test false negatives; MobileNetV2 and CNN each have six false positives. False negatives are particularly important for a screening tool, although high recall on this patch split does not guarantee safety. For each false negative, inspect whether crack thickness, low contrast, shadows, fine texture, or unusual lighting plausibly contributed; however, human interpretation of a few images should be labeled qualitative, not a causal explanation. Similarly, false positives should be grouped by shadows, expansion joints, edge marks, stains, and other line-like non-crack structures. Error categories not established by actual inspection must not be assigned fictional counts.
 
-The error-export file stores path, true label, predicted label, and false-positive/false-negative type. This allows reproducible selection of examples from the original licensed corpus while keeping images and weight checkpoints out of the Git repository. A fair final qualitative figure would show a small, prespecified grid sampled from both error types for each model rather than only favorable examples.
+The actual error-export files store path, true label, predicted label, and false-positive/false-negative type. This allows reproducible selection of examples from the original licensed corpus while keeping images and weight checkpoints out of the Git repository. A fair final qualitative figure would show a small, prespecified grid sampled from both error types for each model rather than only favorable examples.
 
 \subsection{Reproducibility artifact}
 The public implementation contains Python source code, dependency declarations, a README, command-line execution instructions, and a test suite. The experiment command specifies seed, data root, model set, epochs, batch size, learning rate, augmentation, and a unique output directory. The JSON artifact records split type, class counts, software versions, device, model configuration, validation metrics, selected epoch, timing, and test results. It is possible to regenerate the result figures from these structured outputs without manually retyping measurements.

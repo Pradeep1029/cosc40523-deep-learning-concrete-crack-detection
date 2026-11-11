@@ -43,7 +43,7 @@ def build(metrics_path: Path, output: Path):
     contents = r"""% Automatically generated from verified full-dataset results. Do not manually edit.
 \renewcommand{\ResultsAvailable}{1}
 \newcommand{\EmpiricalResultsTable}{%
-\begin{table}[!t]
+\begin{table}[H]
 \caption{Full-Dataset Test Metrics (Crack Class Positive)}
 \label{tab:results}
 \centering
