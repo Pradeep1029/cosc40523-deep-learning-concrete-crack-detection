@@ -1,4 +1,3 @@
-# Course submission policy: no datasets, model weights, or checkpoints.
 /data/
 /datasets/
 /runs/
@@ -25,3 +24,10 @@ __pycache__/
 venv/
 .env
 .DS_Store
+report/*.aux
+report/*.log
+report/*.out
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls

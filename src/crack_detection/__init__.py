@@ -1,1 +1,1 @@
-"""TCU COSC 40523 concrete crack classification study."""
+"""Reproducible concrete crack classification experiments."""

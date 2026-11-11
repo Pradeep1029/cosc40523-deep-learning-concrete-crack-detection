@@ -1,0 +1,99 @@
+name: Full 40k concrete-crack training and IEEE evaluation
+on:
+  push:
+    branches: [full-dataset-experiment]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  train:
+    name: ${{ matrix.model }} full dataset
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [logistic, cnn, mobilenet]
+    env:
+      OMP_NUM_THREADS: '4'
+      OPENBLAS_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU PyTorch and experiment requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e '.[test]' 'requests>=2.31' 'matplotlib>=3.7'
+      - name: Download and verify all 40,000 real images
+        run: python scripts/download_dataset.py --output data --source auto
+      - name: Execute ${{ matrix.model }} on full dataset
+        run: |
+          python -m crack_detection.train --dataset-root data \
+            --model '${{ matrix.model }}' --seed 42 --epochs 5 --batch-size 64 \
+            --learning-rate 0.001 --workers 2 --verify-images \
+            --output-dir 'runs/per_model/${{ matrix.model }}'
+      - name: Upload genuine metrics and splits (no dataset or weights)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full40k-${{ matrix.model }}
+          path: |
+            runs/per_model/${{ matrix.model }}/
+            data/_provenance.json
+          retention-days: 30
+          if-no-files-found: warn
+  combine:
+    name: Verify, tabulate, and render real results
+    needs: [train]
+    if: success()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install plotting and LaTeX
+        run: |
+          python -m pip install numpy matplotlib
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-publishers
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: full40k-*
+          path: runs/artifacts
+          merge-multiple: false
+      - name: Arrange model outputs
+        run: |
+          mkdir -p runs/per_model
+          for model in logistic cnn mobilenet; do
+            mkdir -p "runs/per_model/$model"
+            cp -r "runs/artifacts/full40k-$model/runs/per_model/$model/." "runs/per_model/$model/"
+          done
+      - name: Verify splits and create result figures
+        run: |
+          python scripts/merge_runs.py --run-dir runs/per_model --output-dir runs/final_seed42
+          python scripts/make_figures.py --metrics runs/final_seed42/metrics.json --output-dir report/figures
+          python scripts/export_report_results.py --metrics runs/final_seed42/metrics.json --output report/results_generated.tex
+      - name: Compile IEEE report with verified metrics
+        run: |
+          cd report
+          pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
+          pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
+          pdfinfo final_report.pdf | grep Pages
+      - name: Upload full results and IEEE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-full40k-metrics-and-IEEE-report
+          path: |
+            runs/final_seed42/
+            report/final_report.pdf
+            report/results_generated.tex
+            report/figures/
+            data/_provenance.json
+          retention-days: 30
