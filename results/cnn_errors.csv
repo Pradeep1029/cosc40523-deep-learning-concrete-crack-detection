@@ -1,0 +1,17 @@
+relative_path,true_label,predicted_label,error_type
+Positive/12928_1.jpg,1,0,false_negative
+Negative/10254.jpg,0,1,false_positive
+Positive/18074_1.jpg,1,0,false_negative
+Positive/05350.jpg,1,0,false_negative
+Positive/06383.jpg,1,0,false_negative
+Positive/05419.jpg,1,0,false_negative
+Positive/07022.jpg,1,0,false_negative
+Positive/05351.jpg,1,0,false_negative
+Positive/12927_1.jpg,1,0,false_negative
+Negative/00283.jpg,0,1,false_positive
+Positive/14427_1.jpg,1,0,false_negative
+Negative/07993.jpg,0,1,false_positive
+Negative/06255.jpg,0,1,false_positive
+Positive/04319.jpg,1,0,false_negative
+Negative/15518.jpg,0,1,false_positive
+Negative/18168.jpg,0,1,false_positive

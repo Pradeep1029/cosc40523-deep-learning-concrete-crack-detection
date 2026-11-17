@@ -1,0 +1,17 @@
+{
+  "dataset_title": "Concrete Crack Images for Classification",
+  "original_doi": "10.17632/5y9wdsg2zt.1",
+  "mirror": "kaggle",
+  "urls": [
+    "https://www.kaggle.com/api/v1/datasets/download/arnavr10880/concrete-crack-images-for-classification"
+  ],
+  "zip_sha256": {
+    "https://www.kaggle.com/api/v1/datasets/download/arnavr10880/concrete-crack-images-for-classification": "bd9fdd488ac8cb06576a403dcb924d07949a2289a89a99a84f652355314340cb"
+  },
+  "counts": {
+    "Negative": 20000,
+    "Positive": 20000
+  },
+  "total_images": 40000,
+  "time_utc": "2026-11-11T02:01:04Z"
+}
