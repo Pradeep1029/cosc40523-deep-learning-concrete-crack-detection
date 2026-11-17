@@ -1,7 +1,6 @@
 /data/
 /datasets/
 /runs/
-/results/
 /checkpoints/
 /**/*.pt
 /**/*.pth
