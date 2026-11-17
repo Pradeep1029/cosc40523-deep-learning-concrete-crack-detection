@@ -28,8 +28,8 @@ def main():
 Training setting & Test accuracy & Recall & F1 \\
 \midrule
 """
-    body += f"Flips & {f['accuracy']:.4f} & {f['recall']:.4f} & {f['f1']:.4f} \\\n"
-    body += f"No flips & {n['accuracy']:.4f} & {n['recall']:.4f} & {n['f1']:.4f} \\\n"
+    body += f"Flips & {f['accuracy']:.4f} & {f['recall']:.4f} & {f['f1']:.4f} " + chr(92)*2 + "\n"
+    body += f"No flips & {n['accuracy']:.4f} & {n['recall']:.4f} & {n['f1']:.4f} " + chr(92)*2 + "\n"
     body += r"""\bottomrule
 \end{tabular}
 \end{table}}
