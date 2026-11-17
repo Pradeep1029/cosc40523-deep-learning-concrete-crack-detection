@@ -91,7 +91,7 @@ cd report && pdflatex final_report.tex && pdflatex final_report.tex
 - `results/dataset_provenance.json` — the dataset mirror and archive hash.
 - `report/figures/` — plots made from measured data and examples of real errors.
 
-We also ran a small controlled CNN experiment with and without random horizontal/vertical flips. It uses just 1,000 images per class, the same seed and split in both conditions, and is **not** a second full-dataset result. Its JSON output is `results/ablation_subset_2k_seed42.json`. The [pilot workflow](.github/workflows/pilot_ablation.yml) has the exact commands.
+We also compared the same CNN with and without random horizontal/vertical flips on a smaller, fixed 2,000-patch subset (300 held-out test images). With flips, test accuracy was 98.67% and F1 was 0.9868. Without flips, accuracy was 97.00% and F1 was 0.9695. Both runs used five epochs, the same seed, and identical split assignments. This is a small controlled check, **not** a second full-dataset result. The underlying JSON is in `results/ablation_subset_2k_seed42.json`, and the [pilot workflow](.github/workflows/pilot_ablation.yml) shows how we ran it.
 
 ## How the models were compared
 
