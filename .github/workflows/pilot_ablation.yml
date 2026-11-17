@@ -1,0 +1,83 @@
+name: CNN augmentation pilot and real error examples
+on:
+  push:
+    branches: [full-dataset-experiment]
+    paths:
+      - '.github/workflows/pilot_ablation.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    env:
+      OMP_NUM_THREADS: '4'
+      OPENBLAS_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e '.[test]' 'requests>=2.31' 'matplotlib>=3.7'
+      - name: Download and verify the original 40k-image dataset
+        run: python scripts/download_dataset.py --output data --source auto
+      - uses: actions/download-artifact@v4
+        with:
+          name: final-full40k-metrics-and-IEEE-report
+          run-id: 42958596193
+          github-token: ${{ github.token }}
+          path: prior
+      - name: Illustrate actual held-out mistakes from the completed experiment
+        run: |
+          python scripts/error_gallery.py --dataset-root data \
+            --errors-dir prior/runs/final_seed42 --output-prefix report/figures/error_examples
+      - name: Run the CNN WITH horizontal and vertical flips on a fixed 2k subset
+        run: |
+          python -m crack_detection.train --dataset-root data --model cnn \
+            --limit-per-class 1000 --seed 42 --epochs 5 --batch-size 64 \
+            --learning-rate 0.001 --workers 2 --output-dir runs/ablation/with_flips
+      - name: Run the CNN WITHOUT flips on the identical 2k subset
+        run: |
+          python -m crack_detection.train --dataset-root data --model cnn \
+            --limit-per-class 1000 --seed 42 --epochs 5 --batch-size 64 \
+            --learning-rate 0.001 --workers 2 --no-augmentation \
+            --output-dir runs/ablation/without_flips
+      - name: Validate the paired split and record test results
+        run: |
+          python scripts/summarize_ablation.py \
+            --flips runs/ablation/with_flips \
+            --no-flips runs/ablation/without_flips \
+            --output report/ablation_summary.json
+      - name: Upload figures and recorded measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnn-augmentation-pilot-and-error-gallery
+          path: |
+            report/ablation_summary.json
+            report/figures/error_examples.*
+            runs/ablation/with_flips/metrics.json
+            runs/ablation/without_flips/metrics.json
+            runs/ablation/with_flips/splits.csv
+            runs/ablation/without_flips/splits.csv
+            runs/ablation/with_flips/cnn_errors.csv
+            runs/ablation/without_flips/cnn_errors.csv
+          retention-days: 90
+      - name: Save small evidence files with source code
+        run: |
+          mkdir -p results
+          cp report/ablation_summary.json results/ablation_subset_2k_seed42.json
+          cp report/figures/error_examples.json results/error_examples_seed42.json
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add results/ablation_subset_2k_seed42.json results/error_examples_seed42.json \
+            report/figures/error_examples.pdf report/figures/error_examples.png
+          git commit -m 'Add actual error examples and augmentation pilot [report-only]'
+          git push origin HEAD:full-dataset-experiment
