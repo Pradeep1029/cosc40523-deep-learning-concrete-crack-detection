@@ -91,4 +91,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git add report/final_report.pdf report/final_report.tex report/figures/ report/ablation_generated.tex report/results_generated.tex results/
           git commit -m 'Save final IEEE report and measured results [report-only]'
+          git fetch origin full-dataset-experiment
+          git rebase origin/full-dataset-experiment
           git push origin HEAD:full-dataset-experiment
