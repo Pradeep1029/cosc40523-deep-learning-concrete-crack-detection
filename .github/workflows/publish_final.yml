@@ -1,0 +1,94 @@
+name: Build the submission package from recorded experiments
+on:
+  push:
+    branches: [full-dataset-experiment]
+    paths:
+      - '.github/workflows/publish_final.yml'
+      - 'report/final_report.tex'
+      - 'scripts/render_pilot_tex.py'
+      - 'results/ablation_subset_2k_seed42.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install LaTeX and PDF inspection tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-publishers poppler-utils
+      - name: Fetch full-dataset measurements from successful training
+        uses: actions/download-artifact@v4
+        with:
+          name: final-full40k-metrics-and-IEEE-report
+          run-id: 42958596193
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Fetch measured CNN pilot and real errors (training succeeded)
+        uses: actions/download-artifact@v4
+        with:
+          name: cnn-augmentation-pilot-and-error-gallery
+          run-id: 44007398099
+          github-token: ${{ github.token }}
+          path: pilot
+      - name: Preserve experiment records and selected real images
+        run: |
+          mkdir -p results report/figures
+          cp previous/runs/final_seed42/metrics.json results/full40k_seed42_metrics.json
+          cp previous/runs/final_seed42/splits.csv results/full40k_seed42_splits.csv
+          for model in logistic cnn mobilenet; do
+            cp "previous/runs/final_seed42/${model}_errors.csv" "results/${model}_errors.csv"
+          done
+          cp previous/data/_provenance.json results/dataset_provenance.json
+          cp previous/report/figures/*.pdf report/figures/
+          cp pilot/report/ablation_summary.json results/ablation_subset_2k_seed42.json
+          cp pilot/report/figures/error_examples.json results/error_examples_seed42.json
+          cp pilot/report/figures/error_examples.pdf report/figures/error_examples.pdf
+          cp pilot/report/figures/error_examples.png report/figures/error_examples.png
+          cp pilot/runs/ablation/with_flips/metrics.json results/pilot_with_flips_metrics.json
+          cp pilot/runs/ablation/without_flips/metrics.json results/pilot_without_flips_metrics.json
+          cp pilot/runs/ablation/with_flips/splits.csv results/pilot_seed42_splits.csv
+          cp previous/report/results_generated.tex report/results_generated.tex
+      - name: Generate pilot table from recorded JSON
+        run: |
+          python scripts/render_pilot_tex.py --input results/ablation_subset_2k_seed42.json --output report/ablation_generated.tex
+      - name: Compile and check the five-page IEEE paper
+        run: |
+          cd report
+          pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
+          pdflatex -interaction=nonstopmode -halt-on-error final_report.tex
+          test "$(pdfinfo final_report.pdf | awk '/^Pages:/ {print $2}')" -eq 6
+          pdftotext -f 6 -l 6 final_report.pdf references.txt
+          grep -q '10.1109/CVPR.2018.00474' references.txt
+          pdftotext -f 5 -l 5 final_report.pdf page5.txt
+          ! grep -q 'R EFERENCES' page5.txt
+          pdftotext -f 1 -l 5 final_report.pdf main.txt
+          grep -q '0.9868' main.txt
+          grep -q '0.9990' main.txt
+          pdfinfo final_report.pdf | grep Pages
+      - name: Upload finished files for submission
+        uses: actions/upload-artifact@v4
+        with:
+          name: ieee-submission-ready-report-code-evidence
+          path: |
+            README.md
+            report/final_report.pdf
+            report/final_report.tex
+            report/figures/
+            report/ablation_generated.tex
+            results/
+          retention-days: 90
+      - name: Commit final report and small results, not datasets or weights
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add report/final_report.pdf report/final_report.tex report/figures/ report/ablation_generated.tex report/results_generated.tex results/
+          git commit -m 'Save final IEEE report and measured results [report-only]'
+          git push origin HEAD:full-dataset-experiment
