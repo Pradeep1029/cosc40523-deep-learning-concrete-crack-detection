@@ -1,0 +1,7 @@
+relative_path,true_label,predicted_label,error_type
+Negative/15991.jpg,0,1,false_positive
+Negative/07124.jpg,0,1,false_positive
+Negative/06185.jpg,0,1,false_positive
+Negative/03390.jpg,0,1,false_positive
+Negative/05575.jpg,0,1,false_positive
+Negative/15518.jpg,0,1,false_positive

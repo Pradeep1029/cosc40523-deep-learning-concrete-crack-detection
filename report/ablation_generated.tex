@@ -1,0 +1,17 @@
+% Generated from the measured CNN pilot, not the 40k experiment.
+\renewcommand{\AblationTable}{%
+\begin{table}[!t]
+\caption{Matched CNN pilot on 2,000 patches (300 test patches)}
+\label{tab:ablation}
+\centering
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Training setting & Test accuracy & Recall & F1 \\
+\midrule
+Flips & 0.9867 & 0.9933 & 0.9868 \\
+No flips & 0.9700 & 0.9533 & 0.9695 \\
+\bottomrule
+\end{tabular}
+\end{table}}
+\renewcommand{\AblationSummary}{Test F1 differed by +0.0173 (flips minus no flips). This is a single-seed subset check, not a measure of performance on independent source photographs.}

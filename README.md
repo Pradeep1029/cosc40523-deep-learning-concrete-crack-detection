@@ -1,117 +1,107 @@
-# COSC 40523 Deep Learning - Concrete Crack Detection
+# Concrete crack detection — COSC 50523
 
-**TCU | Fall 2026**
+Fall 2026, TCU  
+Jayapradeep Jayaraman Srinivas and Harshvardhan Datre (Team Vectorise)
 
-**Student:** Jayapradeep Jayaraman Srinivas
+This is our deep learning project. We trained three classifiers to predict whether a photo patch of concrete contains a crack:
 
-My project looks at how well different models can tell whether an image of concrete contains a crack. I am comparing a simple logistic regression baseline, a CNN built from scratch, and a pretrained MobileNetV2 model.
+- Logistic regression on 16×16 grayscale pixels.
+- A small CNN trained from scratch on 128×128 RGB images.
+- MobileNetV2, starting from ImageNet weights, with its feature extractor frozen and a new two-class head.
 
-The goal is to evaluate all three on the same test images, compare their results, and look at the mistakes each model makes.
+The code, report, and real results are here. We did **not** include the dataset or model checkpoints.
 
-## Models
+## Results
 
-| Model | Approach |
-| --- | --- |
-| Logistic regression | Uses grayscale images resized to 16 × 16 pixels as a baseline. Pixel values are standardized using the training set. |
-| Custom CNN | Learns from RGB images using three convolution blocks, batch normalization, global average pooling, and a two-class output layer. |
-| MobileNetV2 | Starts with ImageNet weights, freezes the feature extractor, and trains a new classification layer for crack detection. |
+We evaluated all three models on the same 6,000 held-out patches from the 40,000-image dataset. The random seed was 42.
+
+| Model | Accuracy | Precision | Recall | F1 | False positives | False negatives |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Logistic regression | 90.50% | 93.86% | 86.67% | 0.9012 | 170 | 400 |
+| Our CNN | 99.73% | 99.80% | 99.67% | 0.9973 | 6 | 10 |
+| MobileNetV2 | 99.90% | 99.80% | 100.00% | 0.9990 | 6 | 0 |
+
+Those are the results from our actual training runs, not numbers taken from another paper. The [successful GitHub Actions run](https://github.com/Pradeep1029/cosc40523-deep-learning-concrete-crack-detection/actions/runs/42958596193) produced the metrics and report.
+
+**Important limitation:** This dataset was cut from 458 original photos. We had no verified mapping from each patch back to its parent photo, so our random train/validation/test split can put different crops of the same photo into different sets. These scores are for *held-out patches*. They do not tell us how well the models would work on photographs of a new building. We discuss this in the report.
 
 ## Dataset
 
-I use [Concrete Crack Images for Classification](https://doi.org/10.17632/5y9wdsg2zt.1) from Mendeley Data. It contains 40,000 RGB images, each 227 × 227 pixels: 20,000 with cracks and 20,000 without.
+We used Ç. F. Özgenel's [Concrete Crack Images for Classification](https://doi.org/10.17632/5y9wdsg2zt.1), version 1 (CC BY 4.0): 20,000 cracked and 20,000 non-cracked 227×227 RGB images.
 
-Download and extract the dataset on your computer. The folder passed to `--dataset-root` should contain the `Positive` and `Negative` folders directly:
+The original source is Mendeley Data. For the completed runs we downloaded a [public Kaggle mirror](https://www.kaggle.com/datasets/arnavr10880/concrete-crack-images-for-classification), checked the class counts, and opened all 40,000 files to confirm their dimensions. The downloaded archive's SHA-256 is recorded in `results/dataset_provenance.json`.
+
+To get the same data, run:
+
+```bash
+python scripts/download_dataset.py --output data --source auto
+```
+
+The downloader tries the Kaggle mirror first and then another public mirror. You can also download the original release yourself and extract it into this structure:
 
 ```text
 data/
-  Positive/
-    00001.jpg
-    ...
-  Negative/
-    00001.jpg
-    ...
+  Positive/  # crack = 1
+  Negative/  # no crack = 0
 ```
 
-`Positive` is the crack class (1), and `Negative` is the no-crack class (0). The dataset, model weights, and training outputs are kept out of the repository.
+`data/` is excluded from Git.
 
-## Getting started
+## Set up and run
 
-Use Python 3.10 or newer. From the project folder, create and activate a virtual environment:
+Use Python 3.11 for the closest match to our experiment. PyTorch 2.5.1 (CPU) and torchvision 0.20.1 were used for the published numbers. Use the appropriate PyTorch installation from [pytorch.org](https://pytorch.org/get-started/locally/) for your own machine; other versions or GPUs can cause small differences.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-Install the PyTorch build for your computer using the instructions at [pytorch.org](https://pytorch.org/get-started/locally/). Then install the project and run the tests:
-
-```bash
 python -m pip install -e '.[test]'
 pytest -q
 ```
 
-## Running the models
-
-To run all three models:
+The full experiment is:
 
 ```bash
-python -m crack_detection.train --dataset-root data --model all --epochs 5 --batch-size 64
+python -m crack_detection.train \
+  --dataset-root data --model all --seed 42 \
+  --epochs 5 --batch-size 64 --learning-rate 0.001 \
+  --workers 2 --verify-images --output-dir runs/final_seed42
 ```
 
-You can also run them individually:
+This takes a while on CPU: our CNN took about 59 minutes to fit, and MobileNetV2 about 87 minutes. You can run the models separately using `--model logistic`, `--model cnn`, or `--model mobilenet`. The [full-dataset workflow](.github/workflows/full_dataset.yml) shows the exact GitHub Actions commands we used.
+
+MobileNetV2 downloads ImageNet-1K V1 weights on its first run. **Do not use `--no-pretrained` when trying to reproduce the transfer-learning result.** That changes the experiment.
+
+After training, create the figures and report from the saved metrics:
 
 ```bash
-python -m crack_detection.train --dataset-root data --model logistic
-python -m crack_detection.train --dataset-root data --model cnn --epochs 5
-python -m crack_detection.train --dataset-root data --model mobilenet --epochs 5
+python scripts/make_figures.py \
+  --metrics runs/final_seed42/metrics.json --output-dir report/figures
+python scripts/export_report_results.py \
+  --metrics runs/final_seed42/metrics.json --output report/results_generated.tex
+cd report && pdflatex final_report.tex && pdflatex final_report.tex
 ```
 
-MobileNetV2 downloads pretrained ImageNet weights by default. For a quick check without that download, use:
+## Saved files
 
-```bash
-python -m crack_detection.train --dataset-root data --model mobilenet --no-pretrained --epochs 1
-```
+- `report/final_report.pdf` — the IEEE paper (five pages of main content; references after that).
+- `report/final_report.tex` — editable LaTeX source.
+- `results/full40k_seed42_metrics.json` — all three models, settings, timing, and test counts.
+- `results/full40k_seed42_splits.csv` — the actual image paths used for training, validation, and testing.
+- `results/*_errors.csv` — wrong predictions on the 6,000-image test set.
+- `results/dataset_provenance.json` — the dataset mirror and archive hash.
+- `report/figures/` — plots made from measured data and examples of real errors.
 
-That last command starts from random weights, so it does not test transfer learning.
+We also compared the same CNN with and without random horizontal/vertical flips on a smaller, fixed 2,000-patch subset (300 held-out test images). With flips, test accuracy was 98.67% and F1 was 0.9868. Without flips, accuracy was 97.00% and F1 was 0.9695. Both runs used five epochs, the same seed, and identical split assignments. This is a small controlled check, **not** a second full-dataset result. The underlying JSON is in `results/ablation_subset_2k_seed42.json`, and the [pilot workflow](.github/workflows/pilot_ablation.yml) shows how we ran it.
 
-## Evaluation plan
+## How the models were compared
 
-The default split is approximately 70% training, 15% validation, and 15% testing, with a random seed of 42. The image-level split keeps the class proportions similar across the three sets. Horizontal and vertical flips are applied only to training images for the neural models.
+The full 40,000-image run used 28,000 training patches, 6,000 validation patches, and 6,000 test patches, stratified by label. For the CNN and MobileNetV2, we kept the epoch with the best validation F1 and then tested once. The logistic regression model was fitted on the training set, using training-set statistics only for standardization. Neural-network training used Adam, cross-entropy, batch size 64, learning rate 0.001, and five epochs.
 
-Validation F1 is used to select the best training epoch for each neural model. The test set is then used to report accuracy, precision, recall, F1, and the confusion matrix. Each run also saves a list of misclassified test images so I can inspect false positives and false negatives.
-
-### Keeping related images together
-
-The dataset's 40,000 images were cropped from 458 original photographs. If crops from the same photo appear in both training and testing, the scores may look better than the model's performance on new photos.
-
-When a reliable mapping to the original photos is available, the code can keep each photo's crops in a single split. Create a CSV covering every image with these columns:
-
-```csv
-relative_path,source_group
-Positive/00001.jpg,original-photo-17
-Negative/00001.jpg,original-photo-94
-```
-
-These rows only show the format; replace them with verified photo IDs. Run the models with:
-
-```bash
-python -m crack_detection.train --dataset-root data --source-groups original_photo_map.csv --model all
-```
-
-Without that mapping, the script uses the image-level split and prints a warning. Results from that split measure performance on held-out crops, which may still share a source photo with training images. Group-based splits keep photos separate, though class proportions may vary between sets.
-
-## Results and progress
-
-Each run saves its output in `runs/latest/`:
-
-- `metrics.json`: model settings and evaluation scores.
-- `splits.csv`: the images assigned to each split.
-- `<model>_errors.csv`: misclassified test images for each model.
-
-The training code and tests are included. Evaluation on the full concrete image dataset is still pending, so there are no verified dataset performance scores to report yet.
+The scripts save metrics and the list of incorrect test predictions. They also save the seed, software versions, and model settings, so the reported numbers can be checked against a rerun. No image or pretrained weights are needed to read the results and paper; you only need them to train again.
 
 ## References
 
-1. Özgenel, Ç. F., & Gönenç Sorguç, A. (2018). Performance Comparison of Pretrained Convolutional Neural Networks on Crack Detection in Buildings. *ISARC 2018*, 693–700. [Paper](https://doi.org/10.22260/ISARC2018/0094).
-2. Zhang, L., Yang, F., Zhang, Y. D., & Zhu, Y. J. (2016). Road Crack Detection Using Deep Convolutional Neural Network. *2016 IEEE International Conference on Image Processing*, 3708–3712. [Paper](https://doi.org/10.1109/ICIP.2016.7533052).
-3. Özgenel, Ç. F. (2018). Concrete Crack Images for Classification (Version 1). *Mendeley Data*. [Dataset](https://doi.org/10.17632/5y9wdsg2zt.1).
+- Özgenel, Ç. F. (2018). *Concrete Crack Images for Classification*, Mendeley Data V1. [DOI](https://doi.org/10.17632/5y9wdsg2zt.1)
+- Özgenel, Ç. F., and Gönenç Sorguç, A. (2018). *Performance Comparison of Pretrained Convolutional Neural Networks on Crack Detection in Buildings.* [DOI](https://doi.org/10.22260/ISARC2018/0094)
+- Zhang, L. et al. (2016). *Road Crack Detection Using Deep Convolutional Neural Network.* [DOI](https://doi.org/10.1109/ICIP.2016.7533052)
+- Sandler, M. et al. (2018). *MobileNetV2: Inverted Residuals and Linear Bottlenecks.* [DOI](https://doi.org/10.1109/CVPR.2018.00474)

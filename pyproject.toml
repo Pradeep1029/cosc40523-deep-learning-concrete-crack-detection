@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cosc40523-concrete-crack-detection"
-version = "0.1.0"
-description = "Course project: binary classification of concrete surface cracks"
+version = "0.2.0"
+description = "Reproducible concrete crack image classification experiments"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.26,<3", "Pillow>=10,<13", "scikit-learn>=1.4,<2", "torch>=2.2,<3", "torchvision>=0.17,<1"]
+dependencies = ["numpy>=1.26,<3", "Pillow>=10,<13", "scikit-learn>=1.4,<2", "torch>=2.2,<3", "torchvision>=0.17,<1", "matplotlib>=3.7,<4"]
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]

@@ -1,0 +1,106 @@
+{
+  "experiment": "CNN flip augmentation comparison on a 2,000-patch pilot subset",
+  "full_dataset_comparison": false,
+  "dataset_total_discovered": 40000,
+  "subset_total": 2000,
+  "split_counts": {
+    "train": {
+      "n": 1400,
+      "positive": 700,
+      "negative": 700,
+      "source_groups": null
+    },
+    "val": {
+      "n": 300,
+      "positive": 150,
+      "negative": 150,
+      "source_groups": null
+    },
+    "test": {
+      "n": 300,
+      "positive": 150,
+      "negative": 150,
+      "source_groups": null
+    }
+  },
+  "seed": 42,
+  "split_sha256": "72824fe36aebc28dc0d8dc28a6d87064c43c76f51548e728e27c2719e22e9a42",
+  "epochs": 5,
+  "conditions": {
+    "with_flips": {
+      "test": {
+        "accuracy": 0.9866666666666667,
+        "precision": 0.9802631578947368,
+        "recall": 0.9933333333333333,
+        "f1": 0.9867549668874173,
+        "confusion_matrix": [
+          [
+            147,
+            3
+          ],
+          [
+            1,
+            149
+          ]
+        ]
+      },
+      "val": {
+        "accuracy": 0.9833333333333333,
+        "precision": 0.9865771812080537,
+        "recall": 0.98,
+        "f1": 0.9832775919732442,
+        "confusion_matrix": [
+          [
+            148,
+            2
+          ],
+          [
+            3,
+            147
+          ]
+        ]
+      },
+      "best_epoch": 5,
+      "fit_seconds": 171.977
+    },
+    "without_flips": {
+      "test": {
+        "accuracy": 0.97,
+        "precision": 0.9862068965517241,
+        "recall": 0.9533333333333334,
+        "f1": 0.9694915254237289,
+        "confusion_matrix": [
+          [
+            148,
+            2
+          ],
+          [
+            7,
+            143
+          ]
+        ]
+      },
+      "val": {
+        "accuracy": 0.98,
+        "precision": 0.9931506849315068,
+        "recall": 0.9666666666666667,
+        "f1": 0.9797297297297297,
+        "confusion_matrix": [
+          [
+            149,
+            1
+          ],
+          [
+            5,
+            145
+          ]
+        ]
+      },
+      "best_epoch": 5,
+      "fit_seconds": 177.791
+    }
+  },
+  "test_f1_difference_flips_minus_no_flips": 0.01726344146368841,
+  "test_accuracy_difference_flips_minus_no_flips": 0.01666666666666672,
+  "limitations": "Exploratory single-seed pilot on held-out patches, not independent source photos"
+}

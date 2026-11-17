@@ -1,0 +1,284 @@
+{
+  "status": "complete",
+  "dataset_root": "/home/runner/work/cosc40523-deep-learning-concrete-crack-detection/cosc40523-deep-learning-concrete-crack-detection/data",
+  "dataset_reference": "Ozgenel 2018, doi:10.17632/5y9wdsg2zt.1",
+  "dataset_total_discovered": 40000,
+  "dataset_total_used": 40000,
+  "development_subset_per_class": null,
+  "seed": 42,
+  "split": "image_level_stratified",
+  "split_counts": {
+    "train": {
+      "n": 28000,
+      "positive": 14000,
+      "negative": 14000,
+      "source_groups": null
+    },
+    "val": {
+      "n": 6000,
+      "positive": 3000,
+      "negative": 3000,
+      "source_groups": null
+    },
+    "test": {
+      "n": 6000,
+      "positive": 3000,
+      "negative": 3000,
+      "source_groups": null
+    }
+  },
+  "verification": {
+    "checked": 40000,
+    "size_counts": {
+      "(227, 227)": 40000
+    },
+    "unreadable": 0
+  },
+  "environment": {
+    "python": "3.11.18",
+    "torch": "2.5.1+cpu",
+    "torchvision": "0.20.1+cpu",
+    "sklearn": "1.9.1",
+    "cuda": false,
+    "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+  },
+  "args": {
+    "dataset_root": "data",
+    "source_groups": null,
+    "model": "logistic",
+    "epochs": 5,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "workers": 2,
+    "output_dir": "runs/per_model/logistic",
+    "no_pretrained": false,
+    "no_augmentation": false,
+    "verify_images": true,
+    "limit_per_class": null
+  },
+  "models": [
+    {
+      "model": "logistic",
+      "best_epoch": null,
+      "val_metrics": {
+        "accuracy": 0.8961666666666667,
+        "precision": 0.9371092313350496,
+        "recall": 0.8493333333333334,
+        "f1": 0.8910648714810282,
+        "confusion_matrix": [
+          [
+            2829,
+            171
+          ],
+          [
+            452,
+            2548
+          ]
+        ]
+      },
+      "test_metrics": {
+        "accuracy": 0.905,
+        "precision": 0.9386281588447654,
+        "recall": 0.8666666666666667,
+        "f1": 0.901213171577123,
+        "confusion_matrix": [
+          [
+            2830,
+            170
+          ],
+          [
+            400,
+            2600
+          ]
+        ]
+      },
+      "fit_seconds": 17.107,
+      "history": [],
+      "configuration": {
+        "features": "grayscale 16x16",
+        "normalization": "training-only StandardScaler",
+        "classifier": "LogisticRegression(max_iter=1000)",
+        "seed": 42
+      }
+    },
+    {
+      "model": "cnn",
+      "best_epoch": 5,
+      "val_metrics": {
+        "accuracy": 0.9956666666666667,
+        "precision": 0.9979906229068989,
+        "recall": 0.9933333333333333,
+        "f1": 0.9956565319077848,
+        "confusion_matrix": [
+          [
+            2994,
+            6
+          ],
+          [
+            20,
+            2980
+          ]
+        ]
+      },
+      "test_metrics": {
+        "accuracy": 0.9973333333333333,
+        "precision": 0.9979973297730307,
+        "recall": 0.9966666666666667,
+        "f1": 0.9973315543695798,
+        "confusion_matrix": [
+          [
+            2994,
+            6
+          ],
+          [
+            10,
+            2990
+          ]
+        ]
+      },
+      "fit_seconds": 3531.464,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.0810111255847982,
+          "val_accuracy": 0.9848333333333333,
+          "val_f1": 0.9846257813819902,
+          "seconds": 724.04
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.03328011456504464,
+          "val_accuracy": 0.9946666666666667,
+          "val_f1": 0.9946559786239145,
+          "seconds": 701.953
+        },
+        {
+          "epoch": 3,
+          "train_loss": 0.0242201906280326,
+          "val_accuracy": 0.9943333333333333,
+          "val_f1": 0.994316282179873,
+          "seconds": 702.729
+        },
+        {
+          "epoch": 4,
+          "train_loss": 0.025566634633977497,
+          "val_accuracy": 0.9945,
+          "val_f1": 0.9945100648810514,
+          "seconds": 700.059
+        },
+        {
+          "epoch": 5,
+          "train_loss": 0.01952583254381482,
+          "val_accuracy": 0.9956666666666667,
+          "val_f1": 0.9956565319077848,
+          "seconds": 702.68
+        }
+      ],
+      "configuration": {
+        "epochs": 5,
+        "batch_size": 64,
+        "lr": 0.001,
+        "optimizer": "Adam",
+        "loss": "CrossEntropyLoss",
+        "augment_flips": true,
+        "image_size": 128,
+        "pretrained_imagenet_weights": false,
+        "feature_extractor_frozen": false,
+        "frozen_backbone_batchnorm_eval": false,
+        "device": "cpu",
+        "seed": 42,
+        "workers": 2
+      }
+    },
+    {
+      "model": "mobilenet",
+      "best_epoch": 5,
+      "val_metrics": {
+        "accuracy": 0.999,
+        "precision": 0.999,
+        "recall": 0.999,
+        "f1": 0.999,
+        "confusion_matrix": [
+          [
+            2997,
+            3
+          ],
+          [
+            3,
+            2997
+          ]
+        ]
+      },
+      "test_metrics": {
+        "accuracy": 0.999,
+        "precision": 0.998003992015968,
+        "recall": 1.0,
+        "f1": 0.999000999000999,
+        "confusion_matrix": [
+          [
+            2994,
+            6
+          ],
+          [
+            0,
+            3000
+          ]
+        ]
+      },
+      "fit_seconds": 5196.368,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.03397760566004685,
+          "val_accuracy": 0.9978333333333333,
+          "val_f1": 0.9978315262718932,
+          "seconds": 1043.183
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.009016831667561617,
+          "val_accuracy": 0.9985,
+          "val_f1": 0.9984992496248124,
+          "seconds": 1033.025
+        },
+        {
+          "epoch": 3,
+          "train_loss": 0.006088402028262083,
+          "val_accuracy": 0.9988333333333334,
+          "val_f1": 0.9988323603002502,
+          "seconds": 1040.221
+        },
+        {
+          "epoch": 4,
+          "train_loss": 0.005313432788842225,
+          "val_accuracy": 0.999,
+          "val_f1": 0.9989993328885924,
+          "seconds": 1039.835
+        },
+        {
+          "epoch": 5,
+          "train_loss": 0.004559247266867065,
+          "val_accuracy": 0.999,
+          "val_f1": 0.999,
+          "seconds": 1040.081
+        }
+      ],
+      "configuration": {
+        "epochs": 5,
+        "batch_size": 64,
+        "lr": 0.001,
+        "optimizer": "Adam",
+        "loss": "CrossEntropyLoss",
+        "augment_flips": true,
+        "image_size": 224,
+        "pretrained_imagenet_weights": true,
+        "feature_extractor_frozen": true,
+        "frozen_backbone_batchnorm_eval": true,
+        "device": "cpu",
+        "seed": 42,
+        "workers": 2
+      }
+    }
+  ]
+}

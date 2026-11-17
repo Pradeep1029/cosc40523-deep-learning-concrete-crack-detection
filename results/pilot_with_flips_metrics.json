@@ -1,0 +1,145 @@
+{
+  "status": "complete",
+  "dataset_root": "/home/runner/work/cosc40523-deep-learning-concrete-crack-detection/cosc40523-deep-learning-concrete-crack-detection/data",
+  "dataset_reference": "Ozgenel 2018, doi:10.17632/5y9wdsg2zt.1",
+  "dataset_total_discovered": 40000,
+  "dataset_total_used": 2000,
+  "development_subset_per_class": 1000,
+  "seed": 42,
+  "split": "image_level_stratified",
+  "split_counts": {
+    "train": {
+      "n": 1400,
+      "positive": 700,
+      "negative": 700,
+      "source_groups": null
+    },
+    "val": {
+      "n": 300,
+      "positive": 150,
+      "negative": 150,
+      "source_groups": null
+    },
+    "test": {
+      "n": 300,
+      "positive": 150,
+      "negative": 150,
+      "source_groups": null
+    }
+  },
+  "verification": null,
+  "environment": {
+    "python": "3.11.18",
+    "torch": "2.5.1+cpu",
+    "torchvision": "0.20.1+cpu",
+    "sklearn": "1.9.1",
+    "cuda": false,
+    "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+  },
+  "args": {
+    "dataset_root": "data",
+    "source_groups": null,
+    "model": "cnn",
+    "epochs": 5,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "seed": 42,
+    "workers": 2,
+    "output_dir": "runs/ablation/with_flips",
+    "no_pretrained": false,
+    "no_augmentation": false,
+    "verify_images": false,
+    "limit_per_class": 1000
+  },
+  "models": [
+    {
+      "model": "cnn",
+      "best_epoch": 5,
+      "val_metrics": {
+        "accuracy": 0.9833333333333333,
+        "precision": 0.9865771812080537,
+        "recall": 0.98,
+        "f1": 0.9832775919732442,
+        "confusion_matrix": [
+          [
+            148,
+            2
+          ],
+          [
+            3,
+            147
+          ]
+        ]
+      },
+      "test_metrics": {
+        "accuracy": 0.9866666666666667,
+        "precision": 0.9802631578947368,
+        "recall": 0.9933333333333333,
+        "f1": 0.9867549668874173,
+        "confusion_matrix": [
+          [
+            147,
+            3
+          ],
+          [
+            1,
+            149
+          ]
+        ]
+      },
+      "fit_seconds": 171.977,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.357280712212835,
+          "val_accuracy": 0.5,
+          "val_f1": 0.0,
+          "seconds": 35.653
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.20726102071149008,
+          "val_accuracy": 0.82,
+          "val_f1": 0.7857142857142857,
+          "seconds": 33.984
+        },
+        {
+          "epoch": 3,
+          "train_loss": 0.14090314260550907,
+          "val_accuracy": 0.98,
+          "val_f1": 0.98,
+          "seconds": 34.244
+        },
+        {
+          "epoch": 4,
+          "train_loss": 0.1132126419033323,
+          "val_accuracy": 0.9566666666666667,
+          "val_f1": 0.9556313993174061,
+          "seconds": 34.155
+        },
+        {
+          "epoch": 5,
+          "train_loss": 0.09366251941238131,
+          "val_accuracy": 0.9833333333333333,
+          "val_f1": 0.9832775919732442,
+          "seconds": 33.938
+        }
+      ],
+      "configuration": {
+        "epochs": 5,
+        "batch_size": 64,
+        "lr": 0.001,
+        "optimizer": "Adam",
+        "loss": "CrossEntropyLoss",
+        "augment_flips": true,
+        "image_size": 128,
+        "pretrained_imagenet_weights": false,
+        "feature_extractor_frozen": false,
+        "frozen_backbone_batchnorm_eval": false,
+        "device": "cpu",
+        "seed": 42,
+        "workers": 2
+      }
+    }
+  ]
+}
