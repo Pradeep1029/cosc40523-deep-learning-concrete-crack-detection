@@ -1,220 +1,238 @@
 \documentclass[conference,letterpaper]{IEEEtran}
-\IEEEoverridecommandlockouts
-\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{cite}
-\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{array}
-\usepackage{url}
-\usepackage{balance}
+\usepackage{amsmath}
+\usepackage{cite}
 \usepackage{microtype}
-\usepackage{float}
-\usepackage{etoolbox}
-\providecommand{\ResultsAvailable}{0}
-\IfFileExists{results_generated.tex}{\input{results_generated.tex}}{}
-\newcommand{\StatusCaution}{\emph{Experimental status: the original 40,000-image corpus was not available in the execution environment used to prepare this manuscript. Consequently, no full-dataset numerical comparison is reported in this draft. The artifact provides the executable protocol and the tests described below; substantive performance claims require the actual experiment.}}
-\title{Automated Concrete Crack Classification: A Reproducible Comparison of Logistic Regression, a Scratch CNN, and MobileNetV2}
-\author{\IEEEauthorblockN{Jayapradeep Jayaraman Srinivas\IEEEauthorrefmark{1}\hspace{1.0em}Harshvardhan Datre\IEEEauthorrefmark{1}}
-\IEEEauthorblockA{\IEEEauthorrefmark{1}Department of Computer Science, Texas Christian University\\Fort Worth, Texas, USA\\Team Vectorise --- COSC 40523/50523 Deep Learning, Fall 2026}}
+\usepackage{url}
+\providecommand{\AblationTable}{}
+\providecommand{\AblationSummary}{The separate small-sample comparison is reported as a pilot, not a second full-dataset benchmark.}
+\IfFileExists{ablation_generated.tex}{\input{ablation_generated.tex}}{}
+\title{Concrete Crack Detection with Logistic Regression, a Small CNN, and MobileNetV2}
+\author{\IEEEauthorblockN{Jayapradeep Jayaraman Srinivas \and Harshvardhan Datre}
+\IEEEauthorblockA{Department of Computer Science, Texas Christian University\\
+Fort Worth, Texas, USA\\COSC 50523 Deep Learning, Fall 2026}}
 \begin{document}
 \maketitle
 \begin{abstract}
-Detecting cracks in concrete image patches is a useful classification problem with practical relevance to visual infrastructure inspection. We implement a controlled comparison of three model families: logistic regression on $16\times16$ grayscale pixels, a three-block convolutional neural network trained from scratch, and MobileNetV2 with an ImageNet-pretrained frozen feature extractor. The target dataset comprises 40,000 labeled concrete patches, evenly divided between cracked and uncracked images. Our protocol uses seeded training, shared train/validation/test assignments, validation F1 for neural checkpoint selection, and final test-set accuracy, precision, recall, F1, and confusion matrices. A central concern is that these patches originate from 458 photographs, which may cause source-photo leakage under a random patch-level split. The implementation passes nine automated software checks, including a logistic regression test on synthetic data. \ifnum\ResultsAvailable=1 A validated full-dataset run is included, with \BestModel{} achieving the highest held-out F1 (\BestFOne{}) under the reported split. The findings are limited by source-photo overlap when patch-level splitting is used. \else Full-dataset model performance was not verified in the available environment, so no numerical model ranking is claimed. \fi
+We compared three ways to recognize cracks in photographs of concrete: logistic regression using small grayscale images, a convolutional neural network (CNN) trained from scratch, and a pretrained MobileNetV2 with a new classification head. All three used the same stratified split of 40,000 labeled image patches: 28,000 for training, 6,000 for validation, and 6,000 for testing. On the test set, logistic regression reached 90.50\% accuracy, the CNN reached 99.73\%, and MobileNetV2 reached 99.90\%. The respective F1-scores were 0.9012, 0.9973, and 0.9990. A separate 2,000-patch CNN pilot gave test F1 of 0.9868 with flip augmentation and 0.9695 without it. MobileNetV2 made six false-positive predictions and no false-negative predictions on this particular test set. These high scores need care in interpretation. The patches were cut from 458 larger photographs, and the available data did not include trustworthy source-photo IDs for separating related patches across splits. The results therefore measure classification of held-out patches, not performance on unseen buildings. We release the code, split assignments, experiment settings, and measured errors so the comparison can be checked and repeated.
 \end{abstract}
 \begin{IEEEkeywords}
-concrete cracks, image classification, convolutional neural network, transfer learning, MobileNetV2, reproducibility
+concrete cracks, image classification, CNN, MobileNetV2, transfer learning
 \end{IEEEkeywords}
 \section{Introduction}
-A crack can be an early visible sign of deterioration in concrete, but interpreting images of concrete surfaces is not simply a question of locating dark pixels. Texture, rough aggregates, stains, seams, shadows, and changing illumination all complicate visual classification. The immediate task studied here is binary image-patch recognition: for an RGB photograph crop $x$, predict $y\in\{0,1\}$, where 1 denotes an observable crack. A positive prediction flags the crop for closer human examination; it is not a measurement of crack width, severity, or structural risk.
+A crack in a concrete surface can be easy to see in one photograph and difficult to distinguish from an edge, stain, or shadow in another. We wanted to test how much the model matters when the task is reduced to a simple decision: does this image patch contain a crack? We are not locating the crack within the image or estimating how serious it is.
 
-Computer vision could assist inspection by consistently triaging large numbers of photographs. A classification model, however, is only useful if its evaluation reflects the deployment conditions. A high score on held-out crops that resemble nearby training crops can overstate performance on independently photographed structures. For this reason, our work compares model capacity while giving explicit attention to experimental splits and outcome definitions.
+We chose three models with quite different amounts of learned visual representation. Logistic regression has no convolutional filters; it sees a fixed, small set of pixel values. Our CNN learns its filters only from the concrete images. MobileNetV2 starts with features learned on ImageNet and trains a new output layer for this task. Rather than treating a published result as a baseline, we trained or fitted each model ourselves on the same partitions.
 
-Our contribution is an auditable course-project pipeline rather than a novel neural architecture. The pipeline (i) establishes a simple linear baseline, (ii) contrasts learned local image features with pretrained transferable representations, (iii) produces the same split assignments for all models, (iv) saves configurations and test errors, and (v) distinguishes image-level and original-photo-grouped evaluations. The research question is whether the added complexity of a scratch CNN or a pretrained feature extractor produces a measurable advantage under the same test protocol.
+The question was not just which score was largest. We also wanted to see how many actual cracks each model missed, what training time each required, and whether the comparison would remain credible when its data limitations were made explicit. All three models were tested on the same 6,000 patches, with cracked concrete treated as the positive class. In a practical screening setting, a missed crack and an unnecessary alert are not interchangeable. We therefore looked at the error counts as well as the total score. We did not train a crack-localization model, because the chosen dataset provides only image-level class labels.
 
 \section{Related Work}
-Zhang \emph{et al.} describe an early CNN-based approach to road crack detection \cite{zhang2016}. \"Ozgenel and G\"onen\c{c} Sorgu\c{c} compare pretrained CNNs for crack detection in buildings \cite{ozgenel2018paper}; their work provides motivation for an image-model transfer-learning comparator. MobileNetV2 uses inverted residuals and linear bottlenecks to provide efficient feature extraction \cite{sandler2018}, which is attractive for an inspection pipeline that may eventually run on constrained devices.
+Zhang \emph{et al.} studied road-crack detection using a deep convolutional network \cite{zhang2016}. \c{C}. F. \"Ozgenel and G\"onen\c{c} Sorgu\c{c} compared pretrained networks for crack detection on buildings \cite{ozgenel2018paper}. Their work motivates both the image-classification task and our use of a pretrained network. MobileNetV2 was designed around inverted residuals and linear bottlenecks, offering a relatively efficient feature extractor \cite{sandler2018}.
 
-Those studies are relevant context, not directly comparable score baselines: datasets, splits, pretraining, and labeling protocols can differ. We therefore evaluate our own three implementations on common partitions and avoid transferring published accuracy numbers into our results table. A simple logistic model is particularly valuable here because it tests whether the deeper models improve meaningfully over low-resolution color-independent texture information.
+These papers provide context, but their accuracy figures are not directly comparable to ours unless the datasets and evaluation splits match. Here, the meaningful comparison is between our three implementations evaluated under one shared protocol. We deliberately kept the baseline simple instead of adding handcrafted texture features or a fourth neural model. This makes it easier to see how much is gained by using learned spatial features at all.
 
-% Physical page 2: keep all content needed for grading in the five pages.
-\clearpage
+% Data and models.
 \section{Data}
-\subsection{Origin and labels}
-The chosen \emph{Concrete Crack Images for Classification} dataset is published by \"Ozgenel on Mendeley Data, version 1, DOI 10.17632/5y9wdsg2zt.1 \cite{dataset}. It contains 40,000 RGB image patches at $227\times227$ pixels: 20,000 in the \texttt{Positive} folder and 20,000 in the \texttt{Negative} folder. The imagery was collected from METU campus buildings and cropped from 458 photographs originally measuring $4032\times3024$ pixels. The source photographs vary in illumination and surface finish. The full experiment fetched the 40,000 patches from a public Kaggle mirror of this release, verifying 20,000 examples per class and recording the downloaded archive SHA-256 in \texttt{\_provenance.json}. The repository excludes dataset images and trained weights.
+\subsection{Dataset and labels}
+We used \emph{Concrete Crack Images for Classification} by \"Ozgenel, hosted on Mendeley Data \cite{ozgenel2018data}. It has 40,000 color patches of size $227\times227$: 20,000 in the \texttt{Positive} folder and 20,000 in \texttt{Negative}. The patches originate from 458 larger photographs of concrete surfaces on the Middle East Technical University campus. The images are labeled for crack presence only; they do not contain crack outlines, widths, or severity scores.
 
-Labels are image-level and binary. A \texttt{Positive} label indicates the presence of an apparent crack somewhere within the patch; no pixelwise segmentation or severity annotation is available from this particular classification release. This limits the interpretation: success is identification of a label for the crop, not localization of crack geometry. The source also does not provide a verified original-photo identifier alongside every patch in the existing project material. Consequently, group-based evaluation is conditional on obtaining such a mapping.
+The experiment downloaded the images through a public Kaggle mirror of the Mendeley release, then checked that every image opened correctly and had the expected dimensions. All 40,000 passed. We recorded the download URL and archive SHA-256 in the experiment files. We did not add the original images or trained weights to GitHub. The mirror is a way to retrieve the same public image collection, not a new dataset or another team's train/test split. Our script forms its own splits after checking the two class folders. It also stops if the class counts differ from 20,000 each. This protects against accidentally training on a partial download or a differently prepared sample.
 
-\subsection{Preprocessing and transforms}
-For the logistic baseline, each image becomes a $16\times16$ grayscale array. The 256 pixels are flattened and normalized to $[0,1]$, after which a \texttt{StandardScaler} is fitted \emph{on training pixels only}. The same fitted scaler transforms validation and test features. This prevents the validation or test feature statistics from leaking into model fitting.
+\subsection{Split and data leakage}
+Using seed 42, we made a stratified image-level split: 70\% training, 15\% validation, and 15\% testing. This gave 14,000 positive and 14,000 negative training patches, then 3,000 of each label in both validation and test. No patch file appears in more than one set. The exact assignments were saved in \texttt{splits.csv}. Because the splits were stratified, the test accuracy is easy to interpret: on 6,000 examples with equal numbers of positives and negatives, each incorrect classification changes accuracy by about 0.017 percentage points. Recording the filenames matters as much as recording the seed: it lets somebody check that the models were evaluated on the same examples.
 
-The scratch CNN reads three-channel data and resizes to $128\times128$; channels are normalized with mean and standard deviation of 0.5. MobileNetV2 uses $224\times224$ resized inputs and ImageNet channel statistics: means $(0.485,0.456,0.406)$ and standard deviations $(0.229,0.224,0.225)$. For neural training only, independent horizontal and vertical flips are possible; inference transforms are deterministic. There is no cropping of test images after splitting, and augmentation is never applied to validation or test sets.
+There is an important weakness: patches taken from the same large photograph may look alike. Because no verified mapping from individual patches back to their parent photograph was available, we could not keep entire source photographs in separate sets. This is a limitation of the reported experiment, not something fixed by choosing a different random seed. The code accepts a verified photograph-group CSV for a stricter evaluation if such a mapping is obtained.
 
-\subsection{Partitions and leakage risk}
-With seed 42 and no reliable photograph mapping, the code builds an image-level stratified split. The actual proportions were 70\% training, 15\% validation, and 15\% testing: 28,000/6,000/6,000 patches, balanced within each subset (14,000/3,000/3,000 positives). A given patch appears in exactly one partition, and all models reuse the same exported \texttt{splits.csv}. But distinct patches from one original photograph can look unusually alike. Their appearance in both train and test is \emph{not} ruled out by image-level disjointness.
-
-A stricter protocol takes a verified \texttt{relative\_path,source\_group} mapping and applies two sequential seeded \texttt{GroupShuffleSplit} operations, requiring source groups to remain disjoint across all three subsets. Group-based splitting is necessarily approximate in counts and may produce uneven class balance; the script rejects any resulting split with fewer than two classes. A fabricated photo mapping or grouping by arbitrary patch filenames is not accepted as proof of source independence.
-
-\begin{table}[H]
-\caption{Dataset and Proposed Splitting Protocol}
-\label{tab:data}
-\centering
-\footnotesize
-\begin{tabular}{p{.34\columnwidth}p{.56\columnwidth}}
-\toprule
-Aspect & Value or condition\\
-\midrule
-Source & Mendeley Data V1 (2018)\\
-Classification labels & Positive = 1; Negative = 0\\
-Total published & 40,000 patches (20,000 per class)\\
-Patch dimensions & $227\times227$ RGB\\
-Parent photographs & 458 images\\
-Default split & 70/15/15, stratified, seed 42\\
-Stronger split & Grouped by \emph{verified} parent photo IDs\\
-Primary weakness & Possible overlap in source-photo identity\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Integrity and dataset checks}
-The completed run verified all 40,000 images: every file was readable and exactly $227\times227$ pixels, and each class contained 20,000 patches. All three independent training jobs exported identical split-file SHA-256 checksums. These integrity checks are separate from model performance, but establish that the reported experiment did not silently use a subset. The training code supports a deliberately labeled small-subset mode for development, and that output must never be represented as full-dataset evidence.
-
-% Physical page 3.
-\clearpage
 \section{Methods}
-\subsection{Model A: logistic regression}
-The low-complexity baseline flattens each $16\times16$ grayscale crop to $z\in\mathbb{R}^{256}$. Its positive-class probability is
+\subsection{Preprocessing}
+For logistic regression we converted each image to grayscale, resized it to $16\times16$, and flattened it into 256 features. We scaled pixels to $[0,1]$ and fitted a \texttt{StandardScaler} on training data only. The CNN used $128\times128$ RGB inputs normalized to mean and standard deviation 0.5. MobileNetV2 used $224\times224$ RGB inputs and ImageNet normalization. Horizontal and vertical flips were applied at random during neural-network training; neither validation nor test images were augmented.
+
+\subsection{Three classifiers}
+The logistic model used scikit-learn \texttt{LogisticRegression} with a maximum of 1,000 iterations. It is a deliberately weak baseline: it has no learned spatial filters, and downsizing removes much of the fine texture.
+
+Our CNN had three $3\times3$ convolutional layers with 32, 64, and 128 output channels. Each convolution was followed by batch normalization and ReLU; the first two blocks also used max pooling. Global average pooling and a two-output linear layer produced the final class scores.
+
+For MobileNetV2, we loaded ImageNet-1K V1 weights, froze the feature extractor, and replaced the last classification layer with a two-output layer. We also kept the frozen feature extractor in evaluation mode during training. This matters because batch-normalization statistics otherwise continue changing even when its parameters do not receive gradients.
+
+Both neural models used Adam, cross-entropy loss, learning rate $10^{-3}$, batch size 64, and five epochs. After each epoch we measured validation F1. We restored the epoch with the highest validation F1 before running the test evaluation. The test set was not used to choose the epoch. We used the same training objective for both neural models:
 \begin{equation}
-P(y=1\mid z)=\sigma(w^\top z+b),\quad \sigma(t)=\frac{1}{1+e^{-t}}.
-\label{eq:logistic}
+\mathcal L=-\frac{1}{N}\sum_{i=1}^N\log\frac{\exp(z_{i,y_i})}{\exp(z_{i,0})+\exp(z_{i,1})},
 \end{equation}
-The training pipeline standardizes all features using only the training subset, then calls scikit-learn's \texttt{LogisticRegression(max\_iter=1000)} with the experiment seed. This classifier has no explicit local edge detector and is sensitive to the fixed position of a line in the resized patch. Yet it provides a transparent reference point for deciding whether the learned translation-sensitive and pretrained visual features justify their additional computation.
+where $z_{i,c}$ is the network output for class $c$. The binary label is zero for a non-cracked patch and one for a cracked patch. No class weighting was used because the dataset and its splits were balanced.
 
-\subsection{Model B: scratch convolutional network}
-The small CNN receives a normalized $3\times128\times128$ tensor. It contains three $3\times3$ padded convolution layers with 32, 64, and 128 output channels. Each is followed by batch normalization and ReLU. The first two blocks end with $2\times2$ max pooling. Global adaptive average pooling reduces the final feature map to 128 numbers and a linear head outputs two logits. The objective is two-class cross-entropy,
-\begin{equation}
-\mathcal{L}(\theta)=-\frac{1}{N}\sum_{i=1}^{N}\log \frac{\exp(f_\theta(x_i)_{y_i})}{\sum_{c=0}^{1}\exp(f_\theta(x_i)_c)}.
-\label{eq:ce}
-\end{equation}
-Because feature extraction is learned from randomly initialized weights, this model isolates the contribution of a modest task-specific convolutional representation.
-
-\subsection{Model C: MobileNetV2 transfer learning}
-For transfer learning, we load MobileNetV2 pretrained on ImageNet-1K (V1 weights) \cite{sandler2018}. All pretrained feature-extractor parameters are frozen, and the classifier layer is replaced with a new fully trainable two-logit output. Freezing \texttt{requires\_grad} flags alone is not sufficient: MobileNetV2 includes batch normalization, whose running statistics would still change when training mode is enabled. The corrected implementation explicitly keeps the feature extractor in \texttt{eval()} mode during each head-training epoch. Thus the forward representation remains fixed, while the new classification head is optimized.
-
-\begin{table}[H]
-\caption{Model Design Choices (Fixed Before Test Evaluation)}
-\label{tab:models}
+\begin{table}[!t]
 \centering
+\caption{Training choices kept fixed for the main experiment}
+\label{tab:settings}
 \footnotesize
-\begin{tabular}{p{.23\columnwidth}p{.68\columnwidth}}
+\begin{tabular}{ll}
 \toprule
-Model & Input, representation, and trained parameters\\
+Setting & Value \\
 \midrule
-Logistic & $16^2$ grayscale pixels; 256 standardized features; linear classifier\\
-CNN & $128^2$ RGB; 3 conv/BN/ReLU blocks (32/64/128), two pools; train all layers\\
-MobileNetV2 & $224^2$ RGB; pretrained ImageNet features frozen including BN statistics; train only binary head\\
+Seed; epochs & 42; 5 (neural models) \\
+Batch size; learning rate & 64; $10^{-3}$ \\
+Optimizer; objective & Adam; cross-entropy \\
+Checkpoint selection & Best validation F1 \\
+Augmentation & Horizontal and vertical flips on train \\
+Test preprocessing & Deterministic, no augmentation \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Neural optimization and model selection}
-Both neural methods use Adam with initial learning rate $10^{-3}$, cross-entropy loss, batch size 64, and a maximum of five epochs in the reference configuration. The seed is 42 for Python, NumPy, and PyTorch; a seeded generator drives the training loader. CuDNN deterministic behavior is requested, subject to platform-level limitations. After each epoch, the model is evaluated on the fixed validation split. The epoch with the largest \emph{validation F1} is selected; if two epochs tie, the earlier one is retained. The best state is restored \emph{before} the held-out test pass. The test set is not used to select an architecture, epoch, or normalization method.
 
-\subsection{What the three-way comparison isolates}
-All models predict the same labels on the same test identities, but they do not use the same input resolution or computational budget. The comparison is therefore a \emph{system-level model-choice comparison}, not a clean ablation isolating one architectural variable. A separate CNN run disabling both flip augmentations, while retaining split, seed, batch size, learning rate, and epochs, is specified as a controlled augmentation ablation. Any claims about the effect of augmentation should be based on measured paired-run results, not intuition alone.
+\subsection{Checks before comparing models}
+We made the training script stop rather than silently continue if an image could not be read. The completed scan found 40,000 readable images, all $227\times227$, with 20,000 examples in each class. The three model jobs also produced matching hashes for their split files. In other words, the reported differences were not caused by one model receiving a smaller subset or a different random test set.
 
-% Physical page 4.
-\clearpage
+The software tests cover the split logic, the requirement for complete original-photo group mappings, the CNN output shape, preprocessing dimensions, computed metrics, and an end-to-end logistic run on generated images. They do not tell us whether the models recognize actual cracks; that evidence comes from the full-data test scores. Keeping these two kinds of checks separate made it easier to tell a programming success from a machine-learning result.
+
+% Measured main benchmark.
 \section{Experiments and Results}
-\subsection{Exact protocol and evaluation definitions}
-The primary experiment trains or fits each model using only the train set, selects the best neural epoch using validation F1, and predicts on the same held-out test set. Cracked patches are positive. We record the following four statistics together with the confusion matrix, because accuracy alone can hide asymmetric error types:
-\begin{align}
-\text{Accuracy}&=\frac{TP+TN}{TP+TN+FP+FN},\\
-\text{Precision}&=\frac{TP}{TP+FP},\quad
-\text{Recall}=\frac{TP}{TP+FN},\\
-F_1&=\frac{2\,\text{Precision}\cdot\text{Recall}}{\text{Precision}+\text{Recall}}.
-\end{align}
-Confusion matrices are ordered as \texttt{[Negative, Positive]} along both axes, with rows representing actual class and columns predicted class. An imperfect model can have both false positives (normal concrete flagged) and false negatives (a cracked patch missed). In inspection triage, false negatives may be more consequential than false positives, although actual cost depends on the deployment workflow; our model-selection criterion does not implicitly assign a monetary value to either type.
+\subsection{Evaluation protocol}
+Training ran on Linux with Python 3.11 and CPU-only PyTorch 2.5.1. We fixed seed 42 for Python, NumPy, and PyTorch. All runs used identical saved image assignments. The primary experiment used every image; the smaller augmentation pilot discussed below is separate. The jobs ran independently because the three models have very different memory and processing needs. Each job wrote out its own split file, and the final combination step checked that the split checksums matched. It would have been easy to report three scores from different random partitions by accident; the checksum check prevented that particular error.
 
-\subsection{Verified implementation observations}
-The available environment was able to run the repository's automated tests on generated \emph{synthetic} examples. Nine checks passed: deterministic splitting; parent-group disjointness; detection of erroneous group mappings; scratch CNN shape; frozen MobileNetV2 feature weights; metric calculation; preprocessing tensor dimensions; end-to-end logistic data flow and output files; and rejection of an invalid development-subset size. No test in this collection estimates performance on real concrete imagery. Furthermore, a frozen-weight check is not a substitute for a genuine end-to-end pretrained training run; the training loop also explicitly holds backbone batch-normalization in evaluation mode.
+We report accuracy, precision, recall, and F1 with a crack as the positive label. A false positive (FP) means an intact patch was flagged as cracked. A false negative (FN) means a cracked patch was missed. Precision measures how often positive predictions were correct; recall measures how many real cracks were found. F1 combines those two measures. The two classes are balanced here, but the distinction between FP and FN still matters. Precision and recall are defined by $TP/(TP+FP)$ and $TP/(TP+FN)$, respectively, and $F_1=2PR/(P+R)$. A model that identifies most cracks but raises too many false alarms may be inconvenient in a real inspection workflow. A model that misses cracks presents a different risk. We have not assigned a monetary or safety cost to either error type in this experiment.
 
-\subsection{Full-dataset empirical comparison}
-\ifnum\ResultsAvailable=1
-\EmpiricalResultsTable
-The recorded held-out full-dataset test comparison favors \BestModel{} by F1, with a score of \BestFOne{}. The evaluated partition contains \TrainingN{} training, \ValidationN{} validation, and \TestingN{} test patches under the \SplitProtocol{} protocol. These values come directly from the merged, validated complete-run \texttt{metrics.json} artifact. With exactly 3,000 positive test crops, MobileNetV2 missed no cracks but marked six negative patches as cracked; the scratch CNN missed ten and produced six false alarms. Logistic regression missed 400 cracks. These are crop-level observations, not prospective reliability estimates for unrelated buildings.
-
-\begin{table}[H]
-\caption{Held-Out Confusion Matrices and Model Fit Time}
-\label{tab:cm}
+\begin{table}[!t]
 \centering
-\footnotesize
-\begin{tabular}{lrrrrr}
-\toprule
-Model & TN & FP & FN & TP & Time (s)\\
-\midrule
-Logistic & 2830 & 170 & 400 & 2600 & 17\\
-Scratch CNN & 2994 & 6 & 10 & 2990 & 3531\\
-MobileNetV2 & 2994 & 6 & 0 & 3000 & 5196\\
-\bottomrule
-\end{tabular}
-\end{table}
-The two neural models were optimized for five epochs on GitHub-hosted CPU runners. Their observed validation-F1 best epochs were both epoch 5; the timings are not matched compute-cost comparisons to logistic regression, which uses 256 grayscale pixels rather than full RGB images. The mirror-source record, training configurations, error CSVs, and per-epoch history accompany the machine-readable metrics.
-\else
-\begin{table}[H]
-\caption{Full-Dataset Test Comparison --- Not Yet Measured}
-\label{tab:results}
-\centering
+\caption{Full 40,000-patch experiment: 6,000-image test set}
+\label{tab:main}
 \footnotesize
 \begin{tabular}{lrrrr}
 \toprule
-Model & Acc. & Prec. & Recall & F1\\
+Model & Accuracy & Precision & Recall & F1 \\
 \midrule
-Logistic regression & --- & --- & --- & ---\\
-Scratch CNN & --- & --- & --- & ---\\
-MobileNetV2 & --- & --- & --- & ---\\
+Logistic reg. & .9050 & .9386 & .8667 & .9012 \\
+Scratch CNN & .9973 & .9980 & .9967 & .9973 \\
+MobileNetV2 & \textbf{.9990} & .9980 & \textbf{1.0000} & \textbf{.9990} \\
 \bottomrule
 \end{tabular}
 \end{table}
-\StatusCaution{}
-\fi
 
-\subsection{Controlled experiments and uncertainty}
-The full-data run used flips during neural training, but a flips-disabled CNN ablation was not executed. To isolate augmentation effects, such a run would retain all other settings and test identities. Another useful, stronger generalization test repeats the three-way comparison with verified source-photo-disjoint partitions if the photograph mapping becomes available. The latter cannot be replaced by a new random patch seed: random-seed replication measures split variability but does not remove source dependence.
+\begin{table}[!t]
+\centering
+\caption{Test errors (TN = true negatives; TP = true positives)}
+\label{tab:errors}
+\footnotesize
+\begin{tabular}{lrrrrr}
+\toprule
+Model & TN & FP & FN & TP & Errors \\
+\midrule
+Logistic reg. & 2830 & 170 & 400 & 2600 & 570 \\
+Scratch CNN & 2994 & 6 & 10 & 2990 & 16 \\
+MobileNetV2 & 2994 & 6 & 0 & 3000 & 6 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\ifnum\ResultsAvailable=1 The tested models differ in training time and architecture; F1 must be weighed against recall and the cost of deploying a larger feature extractor. The recorded run provides a numerical comparison under one split and seed, not a confidence interval across independent data collections. Error CSVs permit inspection of individual disagreements, but qualitative causes must be checked directly against original images. \else Because the official-dataset run was unverified, no numerical differences, confidence intervals, selected epochs, runtime ranking, or examples of real errors are asserted. The implementation exports configurations, split assignments, and error CSVs. A plotting utility renders actual F1 charts, confusion matrices, and validation curves once measured results exist. A blank result entry is preferable to a hypothetical score. \fi
+\subsection{What the results show}
+The simple baseline was substantially worse than either image network. Its 570 incorrect test predictions included 400 missed cracks. The CNN reduced the error count to 16; MobileNetV2 made six errors. Under this test split, the pretrained model reached 100\% recall: it found all 3,000 cracked test patches. It still incorrectly marked six non-cracked patches as positive.
 
-% Physical page 5.
+The difference between the two neural models is small in absolute terms: MobileNetV2 made ten fewer mistakes out of 6,000 images, a 0.17 percentage-point gain in F1. A single patch-level split does not support a strong claim that this advantage would persist on photographs taken elsewhere. The comparison also changes input size and representation together, so it does not isolate architecture as the sole cause of the differences.
+
+
+\subsection{Checking paired mistakes}
+Because the predictions were made on the same images, we can also compare which patches each model got wrong. The CNN and MobileNetV2 both missed the correct label on only one test patch. Fifteen patches were incorrect under the CNN but correct under MobileNetV2, while five went the other way. The two neural models agreed on the correct label for the remaining 5,979 patches. This is more informative than comparing two isolated percentages: the stronger model did not simply correct every CNN mistake.
+
+\begin{table}[!t]
+\centering
+\caption{Paired test outcomes: scratch CNN versus MobileNetV2}
+\label{tab:paired}
+\footnotesize
+\begin{tabular}{lr}
+\toprule
+Outcome on the same test patch & Count \\
+\midrule
+Both correct & 5,979 \\
+CNN wrong; MobileNetV2 correct & 15 \\
+CNN correct; MobileNetV2 wrong & 5 \\
+Both wrong & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We have not treated the 6,000 patches as independent observations for a significance test, because multiple patches can share a parent photograph. A formal paired test that ignores that correlation could make the gap look more certain than it is. The raw disagreement counts and full error lists are therefore the safer evidence for this particular data split.
+
+On the validation split, the logistic baseline had F1 of 0.8911, the scratch CNN 0.9957, and MobileNetV2 0.9990. All three test scores were slightly higher than their respective validation scores. That difference is not evidence that the models improved after selection; it reflects ordinary differences between two fixed sets of patches.
+
+The selected epoch was five for both neural models. Their recorded fit times were 3,531 seconds for the CNN and 5,196 seconds for MobileNetV2 on CPU; the logistic pipeline took 17 seconds. These are timings for the recorded environment, not a controlled cross-hardware speed benchmark. The MobileNetV2 backbone was frozen, but it still had to run a forward pass for each training image; that helps explain why a trainable classification head did not make the full model particularly fast on CPU. We did not measure model size, deployment memory, or inference latency, so this study cannot recommend an edge device based on these fit times alone.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=.93\columnwidth]{figures/mobilenet_learning.pdf}
+\caption{MobileNetV2 validation curves from the recorded five-epoch run. The best validation F1 occurred at epoch five.}
+\label{fig:mobilecurve}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=.93\columnwidth]{figures/cnn_learning.pdf}
+\caption{CNN validation accuracy and F1 by epoch, from the full-dataset training log. The fifth epoch had the highest validation F1.}
+\label{fig:learn}
+\end{figure}
+
+% Controlled experiment and example failures.
+\section{Controlled Check and Error Review}
+\subsection{Does flipping the training images matter?}
+We ran a separate, smaller experiment to change one training choice without changing the CNN architecture. We sampled 1,000 images from each class with seed 42 and kept the same train, validation, and test assignments in two runs. Both CNNs used five epochs, the same optimizer, batch size, and seed. One run randomly flipped training images horizontally and vertically; the other did not. Neither run augmented validation or test data. We checked that the split-file hashes matched before comparing scores.
+
+\AblationTable
+\AblationSummary
+
+This is a \emph{pilot} on 2,000 patches, not a second 40,000-image experiment. Its small test set and single random seed mean that modest differences should not be treated as conclusive. Its purpose is to check one training choice under matched conditions. It also helps separate two claims: the main experiment shows which complete model settings worked better, while the pilot changes only the flip setting within one architecture. A difference observed on 300 pilot test patches may be informative, but it is much less stable than an independent full-dataset study.
+
+\subsection{Looking at actual mistakes}
+Every model saved the paths and labels of its wrong test predictions. We selected example errors using a fixed random seed rather than handpicking attractive cases. Fig.~\ref{fig:examples} displays samples from the original test images, not reconstructed or generated images. In MobileNetV2's row, the empty false-negative positions mean there were no false negatives in its test predictions. The images can suggest plausible ambiguities, but they do not support an exact count of causes such as shadows or stains without independent annotation. In our selected examples, the logistic model misses patches with visible branching or edge-adjacent dark lines. Several CNN errors contain thin, crack-like lines even though the dataset labels those patches negative. We cannot tell from the binary label alone whether a line is a surface joint, a mark, or a labeling ambiguity. Importantly, the diagonal-line patch 	exttt{Negative/15518.jpg} was a false positive for both the scratch CNN and MobileNetV2. That shared case is more revealing than a generic claim that one model is simply better at recognizing every kind of crack.
+
+\IfFileExists{figures/error_examples.pdf}{%
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/error_examples.pdf}
+\caption{Randomly selected test-set mistakes for each classifier (two per error type when available; seed 42). FP: a negative patch predicted positive; FN: a positive patch predicted negative. Images: \"Ozgenel \cite{ozgenel2018data}, CC BY 4.0.}
+\label{fig:examples}
+\end{figure}
+}{%
+\begin{figure}[!t]\centering\fbox{\parbox{.85\columnwidth}{The saved error CSVs identify real test examples; the gallery can be rebuilt from the original images with \texttt{scripts/error\_gallery.py}.}}\caption{Error samples are generated from recorded predictions.}\label{fig:examples}\end{figure}
+}
+
+The false-negative count is especially relevant if the model is used to flag photographs for someone to inspect. Missing a crack is not the same consequence as sending a normal patch for review. We report both types rather than relying on a single accuracy value. The logistic model's much larger number of missed cracks is consistent with information being lost when the image is reduced to a 16-by-16 grayscale grid. That is a plausible explanation, not a causal conclusion from the examples alone. For the two CNN-based models, the remaining mistakes are few enough that looking at them individually is more useful than computing broad failure categories without additional ground-truth annotations.
+
+% Discussion and reproducibility.
+\section{Discussion}
+\subsection{What we learned}
+For this dataset and split, the convolutional models were far more accurate than a classifier using only 256 grayscale pixels. This is consistent with their ability to use local image patterns rather than a fixed-position intensity vector. But our comparison does not isolate one reason for that gain: the CNN and MobileNetV2 also use larger input images, and MobileNetV2 has an additional ImageNet pretraining advantage.
+
+MobileNetV2's perfect recall on the 3,000 positive test patches is encouraging for this particular benchmark. It is not evidence of zero miss rate on new infrastructure. The difference between the CNN and MobileNetV2 is only ten patches, and no independent source-photo test has been performed. Since the 6,000 test patches are not guaranteed independent at the photograph level, a conventional confidence interval based on 6,000 independent observations would make the result seem more certain than the sampling design justifies. We therefore report the complete counts rather than attaching a misleading significance claim.
+
+\subsection{Limits that affect the conclusion}
+The largest uncertainty is the source of the patches. A random split separates files, not necessarily the 458 parent photographs. Similarity between crops from the same photograph could make all three scores optimistic. We also have only one random seed for the main comparison, one source dataset, and one preprocessing/training configuration for each model. The test images come from a limited set of buildings and do not represent all concrete surfaces, lighting conditions, cameras, or defects.
+
+These models classify whole patches. They cannot show the location, extent, width, or severity of a crack, and we did not measure their field performance, throughput on a handheld device, or cost of missed inspections. It would be misleading to claim inspection readiness from patch accuracy alone. The comparison also gave different input resolutions to the models: 16, 128, and 224 pixels, respectively. MobileNetV2 benefited from pretraining on a separate large dataset; the scratch CNN did not. Those are valid practical choices, but the reported difference combines input resolution, training history, and architecture. This is a model-selection comparison, not an experiment that isolates just one of these factors.
+
+\subsection{Reproducibility}
+The public repository contains the training program, dataset downloader, Python dependencies, tests, and exact experiment commands. The output includes the seed, data counts, software versions, per-model settings, validation histories, epoch choice, metrics, confusion matrices, and lists of mistaken image paths. We also saved the downloaded archive's SHA-256 and the precise train/validation/test assignments. The project keeps the images and model checkpoints out of version control. All three models can be retrained using the same commands, although training time and low-level numerical behavior may differ across machines.
+
+A complete reproduction of the primary experiment should use the same 40,000-image release, not a development subset or the results from a different paper. The split files in the repository also allow another student to check which examples were evaluated. The short augmentation pilot is labeled separately to avoid mixing its scores with the full-data table.
+
+\subsection{Next step and conclusion}
+
+\subsection{What a stronger follow-up would need}
+A genuinely new-photo test would first identify which patches came from each original photograph. We would put whole photographs into one partition each, check the resulting class counts, and then train the models again from scratch using training photographs only. That would answer a different and more useful question: can the learned features handle a new concrete surface instead of a new crop of a familiar one? The group-splitting option is already implemented, but using it with guessed IDs would create false confidence rather than prevent leakage.
+
+We would also need examples from places other than the source campus, including photographs with different lighting, surface roughness, stains, repair marks, and cameras. Those conditions are not directly measured by the current benchmark. A small manually reviewed collection of independent photos would be a better test of deployment usefulness than another decimal place of accuracy on the same patch dataset. This is why we do not turn the 99.90\% figure into a claim that the model is ready to inspect bridges or buildings without people.
+
+The most useful next experiment is not to try more architectures on the same random split. It is to obtain trustworthy parent-photograph IDs, split by original photograph, and repeat the comparison. If that mapping cannot be recovered, an independent collection of concrete photographs would give a more meaningful external test.
+
+We completed the three-model comparison on all 40,000 patches. Logistic regression reached 0.9012 test F1, the scratch CNN 0.9973, and pretrained MobileNetV2 0.9990. Those figures answer the original question on held-out patches. Their limitations, especially possible overlap in parent photographs, are part of the result.
+
+% References start outside the five-page main-content limit.
 \clearpage
-\section{Discussion and Conclusion}
-\subsection{What can and cannot be concluded}
-The measured comparison tests a progression in representation power: from fixed low-resolution raw pixels, to a trainable convolutional hierarchy, to features learned previously on a large external image corpus. Both learned feature models exceeded the fixed-position pixel classifier by more than nine percentage points of test F1; MobileNetV2 exceeded the scratch CNN by approximately 0.17 percentage points. \ifnum\ResultsAvailable=1 The complete-run table supports a comparison on held-out patches under the recorded split, but does not establish independence from the parent photographs or performance in new environments. \else This is \emph{not a finding} until official held-out data are evaluated. No claim of a superior architecture, inspection accuracy, or statistical significance follows from nine synthetic-data tests. \fi
-
-The project raises three concrete interpretation issues. First, patch-level labels do not locate crack geometry, so a correct label does not show \emph{where} a crack exists. Second, cracks within the METU images do not necessarily represent other regions, surfaces, acquisition devices, or weather conditions. Third, data leakage from common source photographs can create misleadingly optimistic scores. Results from a patch-level split must therefore be described as held-out \emph{patch} performance even when no exact patch identity crosses partitions.
-
-\subsection{Observed errors and follow-up failure analysis}
-The measured outputs contain 400 logistic, 10 CNN, and zero MobileNetV2 test false negatives; MobileNetV2 and CNN each have six false positives. False negatives are particularly important for a screening tool, although high recall on this patch split does not guarantee safety. For each false negative, inspect whether crack thickness, low contrast, shadows, fine texture, or unusual lighting plausibly contributed; however, human interpretation of a few images should be labeled qualitative, not a causal explanation. Similarly, false positives should be grouped by shadows, expansion joints, edge marks, stains, and other line-like non-crack structures. Error categories not established by actual inspection must not be assigned fictional counts.
-
-The actual error-export files store path, true label, predicted label, and false-positive/false-negative type. This allows reproducible selection of examples from the original licensed corpus while keeping images and weight checkpoints out of the Git repository. A fair final qualitative figure would show a small, prespecified grid sampled from both error types for each model rather than only favorable examples.
-
-\subsection{Reproducibility artifact}
-The public implementation contains Python source code, dependency declarations, a README, command-line execution instructions, and a test suite. The experiment command specifies seed, data root, model set, epochs, batch size, learning rate, augmentation, and a unique output directory. The JSON artifact records split type, class counts, software versions, device, model configuration, validation metrics, selected epoch, timing, and test results. It is possible to regenerate the result figures from these structured outputs without manually retyping measurements.
-
-There are two different notions of reproducibility here. \emph{Computational reproducibility} means rerunning equivalent code/configuration on the same published images and comparing metrics. \emph{External validity} means performance on genuinely new structures or acquisition conditions. The latter cannot be established by rerunning the same image-level split, even with several random seeds. The group-based split interface is present for a defensible next experiment if verified photo origins can be reconstructed.
-
-\subsection{Limitations and next steps}
-\ifnum\ResultsAvailable=1 The primary outstanding limitation is external validity: a full-data patch-level score can overstate performance on new photographs. The immediate next step is to inspect real model errors, run the controlled augmentation ablation, and seek a verified original-photo mapping for source-disjoint testing. If photo groups cannot be reconstructed, the leakage disclaimer must remain. \else The primary outstanding limitation is that full-dataset empirical evaluation could not be completed in the available environment. That precludes the central model ranking. The immediate next step is to verify all 40,000 images, train all three models, render measured results, and inspect failures. A verified parent-photo mapping should then be sought; if unavailable, retain the leakage disclaimer. \fi
-
-A subsequent study could compare sensitivity at a threshold chosen solely on validation data, or test transfer to an independently photographed concrete dataset. A lightweight segmentation method would be more appropriate if the objective changes from crack presence to crack location or width. Such extensions should come \emph{after} a sound baseline comparison, not replace it.
-
-\textbf{Conclusion:} We provide an auditable three-model classification implementation and a seed-controlled evaluation protocol. \ifnum\ResultsAvailable=1 The full-dataset comparison demonstrates a measurable result under the declared split, with \BestModel{} achieving the largest test F1 of \BestFOne{}. These results do not establish performance on independent structures. \else Software checks passed, but official-dataset accuracy was not established. The next required step is the documented full-data run. \fi
-
-\clearpage
-\begin{thebibliography}{00}
-\bibitem{dataset} \c{C}. F. \"Ozgenel, ``Concrete Crack Images for Classification,'' Mendeley Data, v1, 2018. doi: 10.17632/5y9wdsg2zt.1.
+\begin{thebibliography}{4}
+\bibitem{ozgenel2018data} \c{C}. F. \"Ozgenel, ``Concrete Crack Images for Classification,'' Mendeley Data, ver. 1, 2018. doi: 10.17632/5y9wdsg2zt.1.
 \bibitem{ozgenel2018paper} \c{C}. F. \"Ozgenel and A. G\"onen\c{c} Sorgu\c{c}, ``Performance Comparison of Pretrained Convolutional Neural Networks on Crack Detection in Buildings,'' in \emph{Proc. 35th ISARC}, 2018, pp. 693--700. doi: 10.22260/ISARC2018/0094.
 \bibitem{zhang2016} L. Zhang, F. Yang, Y. D. Zhang, and Y. J. Zhu, ``Road Crack Detection Using Deep Convolutional Neural Network,'' in \emph{Proc. IEEE ICIP}, 2016, pp. 3708--3712. doi: 10.1109/ICIP.2016.7533052.
-\bibitem{sandler2018} M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L. C. Chen, ``MobileNetV2: Inverted Residuals and Linear Bottlenecks,'' in \emph{Proc. IEEE/CVF CVPR}, 2018, pp. 4510--4520. doi: 10.1109/CVPR.2018.00474.
+\bibitem{sandler2018} M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen, ``MobileNetV2: Inverted Residuals and Linear Bottlenecks,'' in \emph{Proc. IEEE/CVF CVPR}, 2018, pp. 4510--4520. doi: 10.1109/CVPR.2018.00474.
 \end{thebibliography}
 \end{document}
